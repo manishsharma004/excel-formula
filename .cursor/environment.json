@@ -1,5 +1,5 @@
 {
   "name": "excel-formula",
-  "install": "cd typescript && npm ci && npm run build && npm test",
+  "install": "cd typescript && npm ci\nnpm run build",
   "start": "true"
 }
