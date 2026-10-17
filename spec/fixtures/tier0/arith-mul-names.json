@@ -1,0 +1,6 @@
+{
+  "id": "arith-mul-names",
+  "formula": "price * qty",
+  "context": { "price": 9.99, "qty": 3 },
+  "expected": 29.97
+}

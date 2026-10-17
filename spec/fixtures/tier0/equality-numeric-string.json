@@ -1,0 +1,6 @@
+{
+  "id": "equality-numeric-string",
+  "formula": "\"3\"=3",
+  "context": {},
+  "expected": true
+}

@@ -1,0 +1,6 @@
+{
+  "id": "sum-range",
+  "formula": "SUM(A1:B2)",
+  "context": { "A1": 1, "B1": 2, "A2": 3, "B2": 4 },
+  "expected": 10
+}

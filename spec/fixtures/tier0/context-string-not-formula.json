@@ -1,0 +1,6 @@
+{
+  "id": "context-string-not-formula",
+  "formula": "total",
+  "context": { "total": "price*qty" },
+  "expected": "price*qty"
+}

@@ -1,0 +1,6 @@
+{
+  "id": "leading-equals-is-parse-error",
+  "formula": "=price*qty",
+  "context": { "price": 1, "qty": 2 },
+  "expected": { "$type": "host", "kind": "parse" }
+}
