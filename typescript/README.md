@@ -17,7 +17,7 @@ npm run build
 import { Evaluator } from "@excel-formula/core";
 
 const ev = new Evaluator();
-const result = ev.evaluate("=price * qty", { price: 9.99, qty: 3 });
+const result = ev.evaluate("price * qty", { price: 9.99, qty: 3 });
 ```
 
 ## Tests
