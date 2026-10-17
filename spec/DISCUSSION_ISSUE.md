@@ -107,6 +107,6 @@ We can mine their test cases for edge cases once our value model is fixed.
 
 ---
 
-**Draft spec:** [`spec/SPEC.md`](https://github.com/manishsharma004/excel-formula/blob/cursor-agent/monorepo-spec-setup-3188/spec/SPEC.md) on the setup branch (will merge to `main` with the monorepo scaffold).
+**Draft spec:** [`spec/SPEC.md`](https://github.com/manishsharma004/excel-formula/blob/cursor-agent/monorepo-spec-setup-3188/spec/SPEC.md) on branch `cursor-agent/monorepo-spec-setup-3188` (PR to `main` welcome).
 
-/cc @manishsharma004 — feedback welcome on scope and the v0 context model.
+Feedback welcome on scope and the v0 context model.
