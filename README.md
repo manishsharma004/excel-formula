@@ -9,6 +9,7 @@ This repository is a **multi-module monorepo**: one shared specification, multip
 **Early design phase.** Behavior is not finalized. See:
 
 - [`spec/SPEC.md`](spec/SPEC.md) — draft language-neutral specification (source of truth for implementations)
+- [`spec/DISCUSSION_ISSUE.md`](spec/DISCUSSION_ISSUE.md) — draft text for the main design issue (file on GitHub after push)
 - [GitHub issues](https://github.com/manishsharma004/excel-formula/issues) — design discussion and decisions
 
 ## Modules
