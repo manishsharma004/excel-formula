@@ -25,7 +25,7 @@ Non-goals (initially):
 
 | Term | Meaning |
 |------|---------|
-| **Formula** | A string, optionally prefixed with `=`, containing Excel expression syntax |
+| **Formula** | A string of Excel **expression** syntax (no leading `=`; that is a spreadsheet UI convention, not part of this API) |
 | **Context** | A mapping used to resolve references (see §4) |
 | **Cell reference** | Address such as `A1`, `Sheet1!B2`, `$A$1` |
 | **Name** | Identifier such as `Revenue`, `tax_rate` (rules TBD) |
@@ -38,7 +38,7 @@ Each implementation exposes an **Evaluator** (name may vary by language) constru
 
 ### 3.1 `evaluate(formula, context) -> value`
 
-- **formula**: string. Leading `=` is optional; if present it is stripped before parse.
+- **formula**: string. Expression only (e.g. `price * qty`, `SUM(A1:A10)`). Do not include a leading `=`.
 - **context**: mapping (dict / object). Keys are strings; lookup semantics in §4.
 - **returns**: a **Value** (§5) or throws/raises a structured **EvaluationError** (§8).
 
@@ -73,7 +73,7 @@ When the parser needs the value of reference `ref`:
 **Model A — Cell-keyed context**
 
 ```json
-{ "A1": 10, "B1": 20, "C1": "=A1+B1" }
+{ "A1": 10, "B1": 20, "C1": "A1+B1" }
 ```
 
 Formulas in values might be evaluated in dependency order (batch mode).
@@ -81,7 +81,7 @@ Formulas in values might be evaluated in dependency order (batch mode).
 **Model B — Name-keyed context**
 
 ```json
-{ "price": 9.99, "qty": 3, "total": "=price*qty" }
+{ "price": 9.99, "qty": 3, "total": "price*qty" }
 ```
 
 References in formulas use identifiers, not necessarily grid addresses.
