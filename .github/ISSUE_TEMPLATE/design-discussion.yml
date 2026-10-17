@@ -1,0 +1,25 @@
+name: Design discussion
+description: Propose or debate spec changes (spec/SPEC.md)
+title: "Design: "
+labels: ["discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use the [pinned design thread](https://github.com/manishsharma004/excel-formula/issues) when possible.
+        See `spec/SPEC.md` for the current draft specification.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal or question
+      description: What should change in the language-neutral spec?
+      placeholder: e.g. "Use name-keyed context for v0; missing keys should be #REF!"
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact on implementations
+      description: Python / TypeScript / fixtures
+    validations:
+      required: false
