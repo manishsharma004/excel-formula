@@ -1,0 +1,6 @@
+{
+  "id": "cell-shaped-function-name",
+  "formula": "LOG10(100)",
+  "context": { "LOG10": 5 },
+  "expected": { "$type": "error", "code": "#NAME?" }
+}
