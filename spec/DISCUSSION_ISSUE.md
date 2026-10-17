@@ -10,7 +10,7 @@ This file tracks the issue body for version control. When the issue is updated o
 
 This is the **canonical design thread** for [excel-formula](https://github.com/manishsharma004/excel-formula): a language-neutral **spec** plus **Python** and **TypeScript** libraries that evaluate Excel-style expressions against an in-memory mapping (dict / object).
 
-**Active spec:** [`spec/SPEC.md`](./SPEC.md) revision **0.4.0** (see [PR #5](https://github.com/manishsharma004/excel-formula/pull/5)). Implementations under `python/` and `typescript/` are **stubs** until we lock semantics here.
+**Active spec:** [`spec/SPEC.md`](./SPEC.md) revision **0.4.0** (see [PR #6](https://github.com/manishsharma004/excel-formula/pull/6); [#5](https://github.com/manishsharma004/excel-formula/pull/5) merged earlier scaffold). Implementations under `python/` and `typescript/` are **stubs** until we lock semantics here.
 
 ## Problem statement
 
@@ -67,5 +67,5 @@ Full text: spec **§12.4** and open questions **§12.4.11**.
 ## Next steps
 
 1. Comment on **§12.4** and the open checkboxes on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).
-2. Merge **[PR #5](https://github.com/manishsharma004/excel-formula/pull/5)** when ready.
+2. Merge **[PR #6](https://github.com/manishsharma004/excel-formula/pull/6)** when ready.
 3. Implement Tier 0 only after the relevant items are agreed.
