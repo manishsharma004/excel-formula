@@ -1,0 +1,14 @@
+{
+  "id": "row-calc-one-record",
+  "mode": "evaluate",
+  "formula": "price * qty",
+  "context": {
+    "id": 1,
+    "region": "EU",
+    "price": 10,
+    "qty": 2,
+    "discount": 0.1,
+    "paid": true
+  },
+  "expected": 20
+}

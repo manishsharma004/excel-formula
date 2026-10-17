@@ -1,0 +1,43 @@
+{
+  "id": "agg-sumx-error-propagates",
+  "mode": "evaluate",
+  "formula": "SUMX(orders, price * qty)",
+  "context": {
+    "orders": [
+      {
+        "id": 1,
+        "region": "EU",
+        "price": 10,
+        "qty": 2,
+        "discount": 0.1,
+        "paid": true
+      },
+      {
+        "id": 2,
+        "region": "US",
+        "price": 5,
+        "qty": 10,
+        "paid": false
+      },
+      {
+        "id": 3,
+        "region": "eu",
+        "price": 20,
+        "qty": 1,
+        "discount": null,
+        "paid": true
+      },
+      {
+        "id": 4,
+        "region": "APAC",
+        "price": "n/a",
+        "qty": 3,
+        "discount": 0
+      }
+    ]
+  },
+  "expected": {
+    "$type": "error",
+    "code": "#VALUE!"
+  }
+}

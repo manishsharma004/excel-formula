@@ -1,0 +1,14 @@
+{
+  "id": "scalar-list-text-ignored",
+  "mode": "evaluate",
+  "formula": "SUM(scores)",
+  "context": {
+    "scores": [
+      1,
+      2,
+      "3",
+      null
+    ]
+  },
+  "expected": 3
+}

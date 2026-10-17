@@ -1,0 +1,7 @@
+{
+  "id": "blank-vs-false-ordered",
+  "mode": "evaluate",
+  "formula": "missing<FALSE",
+  "context": {},
+  "expected": false
+}

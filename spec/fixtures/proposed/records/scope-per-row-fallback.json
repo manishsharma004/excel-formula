@@ -1,0 +1,18 @@
+{
+  "id": "scope-per-row-fallback",
+  "mode": "evaluate",
+  "formula": "SUMX(orders, qty * rate)",
+  "context": {
+    "rate": 2,
+    "orders": [
+      {
+        "qty": 1,
+        "rate": 10
+      },
+      {
+        "qty": 2
+      }
+    ]
+  },
+  "expected": 14
+}

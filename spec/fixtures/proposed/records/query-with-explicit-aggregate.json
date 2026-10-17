@@ -1,0 +1,26 @@
+{
+  "id": "query-with-explicit-aggregate",
+  "mode": "filter",
+  "formula": "amount > AVERAGEX(all, amount)",
+  "context": {
+    "all": [
+      {
+        "amount": 10
+      },
+      {
+        "amount": 30
+      }
+    ]
+  },
+  "rows": [
+    {
+      "amount": 10
+    },
+    {
+      "amount": 30
+    }
+  ],
+  "expected": [
+    1
+  ]
+}

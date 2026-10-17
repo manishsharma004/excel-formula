@@ -1,0 +1,9 @@
+{
+  "id": "empty-countrows",
+  "mode": "evaluate",
+  "formula": "COUNTROWS(none)",
+  "context": {
+    "none": []
+  },
+  "expected": 0
+}

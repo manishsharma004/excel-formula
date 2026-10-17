@@ -1,0 +1,12 @@
+{
+  "id": "empty-averagex",
+  "mode": "evaluate",
+  "formula": "AVERAGEX(none, x)",
+  "context": {
+    "none": []
+  },
+  "expected": {
+    "$type": "error",
+    "code": "#DIV/0!"
+  }
+}

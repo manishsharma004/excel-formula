@@ -1,0 +1,8 @@
+{
+  "id": "empty-filter-api",
+  "mode": "filter",
+  "formula": "x > 1",
+  "context": {},
+  "rows": [],
+  "expected": []
+}

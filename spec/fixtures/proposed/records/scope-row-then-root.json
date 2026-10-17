@@ -1,0 +1,19 @@
+{
+  "id": "scope-row-then-root",
+  "mode": "filter",
+  "formula": "amount > threshold",
+  "context": {
+    "threshold": 100
+  },
+  "rows": [
+    {
+      "amount": 50
+    },
+    {
+      "amount": 150
+    }
+  ],
+  "expected": [
+    1
+  ]
+}
