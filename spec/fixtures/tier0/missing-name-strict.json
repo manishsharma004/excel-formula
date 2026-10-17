@@ -1,0 +1,7 @@
+{
+  "id": "missing-name-strict",
+  "formula": "missing + 1",
+  "context": {},
+  "options": { "strict": true },
+  "expected": { "$type": "error", "code": "#REF!" }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "if-does-not-eval-other-branch",
+  "formula": "IF(TRUE, 1, 1/0)",
+  "context": {},
+  "expected": 1
+}

@@ -1,0 +1,6 @@
+{
+  "id": "ordered-string-greater-than-number",
+  "formula": "\"3\">2",
+  "context": {},
+  "expected": true
+}

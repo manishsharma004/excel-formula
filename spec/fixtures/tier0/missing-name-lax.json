@@ -1,0 +1,7 @@
+{
+  "id": "missing-name-lax",
+  "formula": "missing + 1",
+  "context": {},
+  "options": { "strict": false },
+  "expected": 1
+}
