@@ -88,6 +88,8 @@ Host errors (§10) abort evaluation and are not returned as `#VALUE!`.
 | `maxRangeCells` | integer | `10000` | Cells materialized from one range |
 | `timeoutMs` | integer or absent | absent | If set, evaluation MUST fail with a host **timeout** error when exceeded. Implementations MAY poll between function calls; they are not required to preempt a single builtin |
 
+Function registry options (`functions`, `builtins`, `clock`) are proposed in §12.4.
+
 `referenceStyle` other than `"A1"` and `formulaLocale` other than `"en-US"` are **Deferred**. Passing them MUST be a host error (unsupported option), not silent ignore.
 
 ### 4.3 What this revision does not provide
@@ -121,12 +123,12 @@ Whitespace (U+0009, U+000A, U+000D, U+0020) MAY appear between tokens and MUST N
 | String | `"…"` with `""` encoding one double-quote. No other escapes. Raw newlines inside strings are allowed (Excel allows them). |
 | Boolean | `TRUE` / `FALSE`, case-insensitive |
 | Identifier | Regex `^[A-Za-z_][A-Za-z0-9_.]*$` **after** the cell-reference rule below |
-| Cell reference | Regex `^\$?[A-Za-z]{1,3}\$?[0-9]{1,7}$` (column letters 1–3, row 1–1048576). If the token matches this pattern, it is a **cell reference**, never a name. `A1` is always a cell. |
+| Cell reference | Regex `^\$?[A-Za-z]{1,3}\$?[0-9]{1,7}$` (column letters 1–3, row 1–1048576). If the token matches this pattern, it is a **cell reference**, never a name, **unless it is immediately followed by `(`**, in which case it is a function name. `A1` is always a cell; `LOG10(100)` is a call even though `LOG10` is also a valid cell address. |
 | Range | `cell:cell` with optional whitespace around `:`. Both ends MUST be cell references. |
 | Operators | `+` `-` `*` `/` `^` `&` `=` `<>` `<` `>` `<=` `>=` `%` |
 | Punctuation | `(` `)` `,` |
 
-Function names use the identifier rule and are matched **case-insensitively** against the builtin catalog. Unknown calls are `#NAME?` (§9), not host parse errors.
+Function names use the identifier rule, or the cell pattern when followed by `(`, and are matched **case-insensitively** against the function registry (§12.4). No whitespace is allowed between a function name and its `(`. Unknown calls are `#NAME?` (§9), not host parse errors.
 
 ### 5.2 Expression grammar
 
@@ -342,6 +344,8 @@ These are **not** formula results. APIs MUST surface them as thrown exceptions /
 | `limit` | Formula length, AST size, argument count, or range size exceeded |
 | `timeout` | `timeoutMs` exceeded |
 | `unsupported` | Unsupported option |
+| `config` | Invalid function registration (§12.4, Proposed) |
+| `function` | A custom function threw or returned a non-value (§12.4.5, Proposed) |
 
 Messages are implementation-defined. Fixture files do not assert message text.
 
@@ -457,6 +461,158 @@ Implementations that advertise Tier 1 MUST implement all of the following.
 - Tier 2: `VLOOKUP`, `XLOOKUP`, `INDEX`, `MATCH`, `SUMIF`, `COUNTIF`, `DATE`, `TODAY`, `NOW`
 - Tier 3: dynamic arrays, `LAMBDA`, `LET`, `FILTER`, `SORT`
 
+### 12.4 Extensibility: additional functions (Proposed)
+
+**Status: Proposed, under discussion on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).** Nothing here is required for Tier 0 conformance until the issue locks it. It is written with MUST/SHOULD so the proposal is precise enough to argue about.
+
+Callers will want functions the spec does not define: domain rules (`TAX(amount, region)`), Excel functions from a later tier before the spec reaches them, or company-specific helpers. There are two kinds of growth, and they need different rules:
+
+| Kind | Who adds it | Same result in every language? | Covered by shared fixtures? |
+|------|-------------|--------------------------------|-----------------------------|
+| **Spec functions** (Tier 1, Tier 2, …) | This spec, in a new revision | Yes, MUST | Yes, `spec/fixtures/tier*/` |
+| **Custom functions** | The application, at runtime | Only if the application writes both versions | Only if a function pack ships its own fixtures (§12.4.9) |
+
+#### 12.4.1 One registry for everything
+
+Each evaluator holds a **function registry**: a case-insensitive map from function name to an implementation plus a signature (§12.4.3). Builtins are registered through the same mechanism as custom functions.
+
+That is a design constraint, not a convenience. If the Tier 0 builtins can be written with the public extension API, the API is proven expressive enough for real Excel functions (lazy `IF`, range-aware `SUM`). If builtins need private hooks, custom functions will hit the same wall.
+
+Lookup happens when a call is **evaluated**, not when it is parsed. A call to a name that is not in the registry still returns `#NAME?` (§9), so formulas that mention a not-yet-installed function parse and fail gracefully.
+
+#### 12.4.2 Configuring the registry
+
+| Option | Type | Default | Meaning |
+|--------|------|---------|---------|
+| `functions` | list of function definitions | `[]` | Custom functions added on top of the builtins |
+| `builtins` | `"all"`, a tier list such as `["0"]`, or an explicit name list | `"all"` | Which builtins are available. Lets a server expose only a reviewed subset to untrusted formulas |
+
+Rules:
+
+- A custom name that collides with an enabled builtin is a host error **`config`** at construction time, unless the definition sets `override: true`. Overriding is allowed so an application can patch a builtin, but never by accident.
+- Two custom definitions with the same name (case-insensitive) are a host error **`config`**.
+- The registry is fixed once the evaluator is constructed. Registering after construction is not supported, so one evaluator gives the same answer for the same input for its whole lifetime, and it is safe to share across threads or requests.
+- Removing a builtin is done through `builtins`, not by registering a stub.
+
+#### 12.4.3 Function names
+
+- Names follow the identifier rule in §5.1 (`[A-Za-z_][A-Za-z0-9_.]*`) and are matched case-insensitively, like builtins.
+- A name MAY match the cell-reference pattern. `LOG10` is both a valid cell (column `LOG`, row `10`) and a real Excel function. The `(` decides (§5.1): `LOG10(100)` is a call, bare `LOG10` is the cell.
+- Custom functions SHOULD use a dotted namespace, for example `ACME.TAX`. Names without a dot are reserved for current and future spec functions. A future spec revision that adds a builtin with the same name as an un-namespaced custom function would otherwise collide, and §12.4.2 makes that a construction-time error after an upgrade.
+- `TRUE` and `FALSE` cannot be registered.
+
+#### 12.4.4 Signature
+
+A definition is:
+
+| Field | Meaning |
+|-------|---------|
+| `name` | §12.4.3 |
+| `minArgs`, `maxArgs` | Arity. `maxArgs` may be unbounded (still capped by `maxFunctionArgs`, §4.2). Wrong arity is `#VALUE!` without calling the implementation. |
+| `params` | Per-parameter kind (below). The last entry repeats for variadic functions. |
+| `impl` | The function body (§12.4.5) |
+| `override` | §12.4.2 |
+| `volatile` | Default `false`. §12.4.7 |
+
+Parameter kinds decide **what the implementation receives**. The evaluator does the work, so every function treats ranges, errors, and laziness the same way:
+
+| Kind | The implementation receives | Errors | Typical use |
+|------|-----------------------------|--------|-------------|
+| `number` | A number, coerced with §8.1 | An error argument short-circuits: the function is not called, the error is returned | `ROUND`, `ACME.TAX` |
+| `string` | A string, coerced with §8.2 | Same | `LEFT`, `LEN` |
+| `boolean` | A boolean, coerced with §8.3 | Same | `NOT` |
+| `scalar` | Any scalar value, uncoerced, including blank and error values | Passed through; the function decides | `IFERROR`, `ISBLANK` |
+| `values` | A flat list in §6.5 order. Each item is tagged **direct** or **from range**, because Excel treats them differently (§12.1 `SUM`) | Passed through | `SUM`, `COUNT`, `CONCAT` |
+| `range` | A rectangle: row and column count plus cell values. A non-range argument is `#VALUE!` | Passed through | `INDEX`, `VLOOKUP` (Tier 2) |
+| `lazy` | A thunk. The argument is evaluated only if and when the implementation calls it, at most once | Whatever the thunk returns | `IF`, `IFERROR`, `CHOOSE` |
+
+A range passed to a `number`, `string`, `boolean`, or `scalar` parameter is `#VALUE!` (no implicit intersection, §17.4).
+
+#### 12.4.5 Implementation contract
+
+- The implementation receives the converted arguments and a small **call context**: the evaluator options, a clock (§12.4.7), and a `checkTimeout()` hook.
+- It MUST return a value from §7.1. It returns spreadsheet errors as error **values** (the language binding provides a constructor, for example `ExcelError("#N/A")`). It does not throw them.
+- Returning anything else (a list, a dict, `NaN`, `undefined`, a date object) is a host error **`function`**.
+- An exception thrown by the implementation is a host error **`function`** that names the function and carries the original exception. It is **not** turned into `#VALUE!`. A bug in application code should be loud; `#VALUE!` would make it look like bad input data.
+- The context mapping is not passed in. A custom function sees only its arguments, so `evaluate` stays pure with respect to the context (§4.3) and a function cannot quietly read keys the formula never mentioned.
+- Implementations MUST be synchronous. Async functions (database lookups, HTTP) are **Deferred**: they would make the API async in both languages and make timeouts and determinism much harder. Fetch the data first and put it in the context.
+
+#### 12.4.6 Language shapes (informative)
+
+```python
+from excel_formula import Evaluator, FunctionDef, ExcelError
+
+def tax(amount: float, rate: float):
+    if rate < 0:
+        return ExcelError("#NUM!")
+    return amount * rate
+
+ev = Evaluator(functions=[
+    FunctionDef(name="ACME.TAX", params=["number", "number"], impl=tax),
+])
+ev.evaluate("ACME.TAX(price, 0.2)", {"price": 100})  # 20
+```
+
+```ts
+import { Evaluator, excelError } from "@excel-formula/core";
+
+const ev = new Evaluator({
+  functions: [{
+    name: "ACME.TAX",
+    params: ["number", "number"],
+    impl: (amount: number, rate: number) =>
+      rate < 0 ? excelError("#NUM!") : amount * rate,
+  }],
+});
+ev.evaluate("ACME.TAX(price, 0.2)", { price: 100 }); // 20
+```
+
+The Python keyword and TypeScript property names MAY differ in style, but field meanings MUST match §12.4.4.
+
+#### 12.4.7 Volatile functions and the clock
+
+`TODAY()`, `NOW()`, and `RAND()` give different answers on each call. They break fixtures and caching.
+
+- A definition marked `volatile: true` MUST read time through the call context clock, not the system clock.
+- The evaluator option `clock` (a function returning the current instant) defaults to the system clock. Tests inject a fixed clock.
+- Randomness gets the same treatment through an injectable `random` source. Until a revision adds `RAND`, this is only reserved.
+- Callers that cache results MUST NOT cache a formula that called a volatile function. The evaluator reports this: `evaluate` exposes, alongside the result, whether any volatile function ran (exact shape **Open**; a second method such as `evaluateDetailed` is one option).
+
+#### 12.4.8 Discovering what is available
+
+`listFunctions()` returns every enabled function with its name, arity, parameter kinds, tier (or `custom`), and whether it is volatile. Uses:
+
+- Autocomplete and validation in formula editors.
+- A server checking a stored formula against the functions it actually allows, before running it.
+- `parse(formula)` that returns the referenced function names and context keys without evaluating (**Open**). It lets a UI warn "this formula calls `ACME.TAX`, which is not installed here" at save time instead of at run time.
+
+#### 12.4.9 Function packs and cross-language parity
+
+A **function pack** is a named, versioned set of definitions published for more than one language, for example `acme-finance`. Parity is the whole point of this repository, so packs follow the same rules as the spec:
+
+- A pack ships fixtures in the §15.2 format under its own directory, plus a manifest naming the pack and its version.
+- A fixture may set `"packs": ["acme-finance@1"]`. Runners load those packs before evaluating, and skip the fixture when a pack is not available for that language.
+- Spec tiers are themselves packs maintained in this repository (`tier0`, `tier1`, …). Promoting a well-used pack function into a spec tier is how the builtin catalog grows.
+
+#### 12.4.10 Security
+
+Custom functions run application code with the application's privileges. The evaluator cannot sandbox them, so the controls are about **which** functions untrusted formulas can reach:
+
+- `builtins` restricts the built-in surface. For example `["0"]` allows only reviewed Tier 0 functions.
+- The application chooses which custom functions to register. A function that reads files or the network should not be registered on an evaluator that runs user-authored formulas.
+- `timeoutMs` (§4.2) still applies. A long-running custom function SHOULD call `checkTimeout()` inside loops; otherwise the timeout fires only after it returns.
+- Range arguments are materialized under `maxRangeCells`, so a custom function cannot be used to bypass that limit.
+
+#### 12.4.11 Open questions for issue #4
+
+1. Should a custom function that throws produce a host error **`function`** (proposed) or `#VALUE!` like Excel add-ins often do?
+2. Is the dotted-namespace rule a MUST, or only a SHOULD with a warning on upgrade collisions?
+3. Should `override: true` of a builtin be allowed at all, or only replacing a builtin via `builtins` plus a new name?
+4. Do we need `lazy` parameters for custom functions, or only for builtins? (`lazy` is required to write `IF` with the public API.)
+5. How should `evaluate` report that a volatile function ran: a separate method, an options flag, or a result wrapper?
+6. Do we ever allow async functions, or keep "fetch first, then evaluate" as a permanent rule?
+7. Should `LAMBDA` / `LET` (Tier 3) be how users define functions *in formula text*, as a second, sandboxed extension route that needs no host code?
+
 ## 13. Operators (after coercion)
 
 | Operator | Rule |
@@ -505,7 +661,7 @@ Each file is a JSON object:
 }
 ```
 
-`options` MAY be omitted (defaults). `expected` uses §7.2 for values. A host error (§10) is encoded as `{"$type":"host","kind":"parse"|"limit"|"timeout"|"unsupported"}`. Optional `tier` defaults from the directory name. Optional `skip` with a string reason marks a case not yet required.
+`options` MAY be omitted (defaults). `expected` uses §7.2 for values. A host error (§10) is encoded as `{"$type":"host","kind":"parse"|"limit"|"timeout"|"unsupported"|"config"|"function"}`. Optional `tier` defaults from the directory name. Optional `skip` with a string reason marks a case not yet required.
 
 Numeric expectations that are not integers SHOULD be compared with an absolute tolerance of `1e-9` unless the fixture sets `"tolerance": 0`.
 
@@ -639,11 +795,13 @@ Tracked on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4)
 3. Sheet-qualified references: flat key `"Sheet2!A1"` vs nested maps.
 4. Final PyPI / npm publish names.
 5. Whether Tier 1 is required for the first public release or only Tier 0.
+6. Extensibility with additional functions: the proposal in §12.4 and its open questions in §12.4.11.
 
 ## 19. Revision history
 
 | Revision | Date | Summary |
 |----------|------|---------|
+| 0.4.0 | 2026-10-17 | Proposed extensibility model for additional functions (§12.4): one registry, parameter kinds, naming, volatility, packs, security. A cell-shaped token followed by `(` is a function name (`LOG10(…)`) |
 | 0.3.0 | 2026-10-17 | Use cases, corner-case catalog, existing engines; COUNT ignores errors in ranges; space is not intersection |
 | 0.2.0 | 2026-10-17 | Normative draft: no leading `=`, grammar, coercion, Tier 0 functions, fixture schema, limits |
 | 0.1.0 | 2026-10-17 | Initial outline |
