@@ -16,7 +16,7 @@ python -m pip install -e ".[dev]"
 from excel_formula import Evaluator
 
 ev = Evaluator()
-result = ev.evaluate("price * qty", {"price": 9.99, "qty": 3})
+result = ev.evaluate("=price * qty", {"price": 9.99, "qty": 3})
 ```
 
 ## Tests
