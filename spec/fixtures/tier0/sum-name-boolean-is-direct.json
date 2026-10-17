@@ -1,0 +1,8 @@
+{
+  "id": "sum-name-boolean-is-direct",
+  "formula": "SUM(flag, 1)",
+  "context": {
+    "flag": true
+  },
+  "expected": 2
+}

@@ -1,6 +1,6 @@
 /** Stub evaluator — behavior defined in ../../spec/SPEC.md (not yet implemented). */
 
-export const SPEC_REVISION = "0.1.0";
+export const SPEC_REVISION = "0.5.0";
 
 export type Value = unknown;
 

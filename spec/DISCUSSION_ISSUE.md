@@ -10,7 +10,9 @@ This file tracks the issue body for version control. When the issue is updated o
 
 This is the **canonical design thread** for [excel-formula](https://github.com/manishsharma004/excel-formula): a language-neutral **spec** plus **Python** and **TypeScript** libraries that evaluate Excel-style expressions against an in-memory mapping (dict / object).
 
-**Active spec:** [`spec/SPEC.md`](./SPEC.md) revision **0.4.0** on `main` ([#5](https://github.com/manishsharma004/excel-formula/pull/5) + [#6](https://github.com/manishsharma004/excel-formula/pull/6) merged). Implementations under `python/` and `typescript/` are **stubs** until we lock semantics here.
+**Active spec:** [`spec/SPEC.md`](https://github.com/manishsharma004/excel-formula/blob/main/spec/SPEC.md) revision **0.5.0** on `main`. Implementations under `python/` and `typescript/` are **stubs** until we lock semantics here.
+
+**Review and status of every finding:** [`spec/REVIEW.md`](https://github.com/manishsharma004/excel-formula/blob/main/spec/REVIEW.md). **Draft cases, each explained:** [`spec/fixtures/proposed/README.md`](https://github.com/manishsharma004/excel-formula/blob/main/spec/fixtures/proposed/README.md).
 
 ## Problem statement
 
@@ -30,6 +32,29 @@ evaluate("price * qty", { "price": 9.99, "qty": 3 }) → 29.97
 
 Context values are **data**. A string `"price*qty"` in the context is not evaluated as a formula (spec §6.6).
 
+### Records requirement
+
+Aggregation functions MUST accept **lists of records**. A formula with no aggregation function MUST work both as a **calculation** (one record) and as a **query** (a predicate over many records). Spec §2.1. The design that meets it is §12.5, still **Proposed**.
+
+### Excel-compat corrections (spec 0.5.0)
+
+Where the spec contradicted its own Excel compatibility target, 0.5.0 fixed the rule and the fixtures:
+
+| Case | Before 0.5.0 | Now (matches Excel) | Fixture |
+|------|--------------|---------------------|---------|
+| `"3"=3` | `TRUE` | `FALSE`: comparisons never coerce | `tier0/equality-text-number-unequal` |
+| `2^3^2` | `512` (right-assoc) | `64` (left-assoc) | `tier0/power-left-assoc` |
+| `"1">2`, `TRUE>1` | `FALSE` (coerced) | `TRUE` (ordered by type) | `tier0/text-greater-than-number-no-coercion`, `boolean-greater-than-number` |
+| `1<2<3` | `TRUE` | `FALSE` | `tier0/chained-comparison` |
+| `missing<FALSE` | depended on coercion | `FALSE` (blank takes the other side’s type) | `tier0/blank-vs-false-ordered` |
+| `COUNT(TRUE, "3", 1)` | `1` | `3` | `tier0/count-direct-boolean-and-numeric-text` |
+| `COUNT(1, 1/0)` | `#DIV/0!` | `1` | `tier0/count-direct-error-not-counted` |
+| `0^-1` | `#NUM!` | `#DIV/0!` | `tier0/zero-negative-power` |
+| `IF(FALSE, 1)` | arity `#VALUE!` | `FALSE` | `tier0/if-two-args` |
+| `ROUND(2.675, 2)` | unspecified | `2.68` | `tier1/round-decimal-half` |
+
+Deliberate deviations from Excel are listed in spec §17.4.
+
 ## Spec progress (informative)
 
 | Revision | Highlights |
@@ -37,70 +62,44 @@ Context values are **data**. A string `"price*qty"` in the context is not evalua
 | 0.2.0 | Grammar, coercion, Tier 0 functions, limits, fixtures |
 | 0.3.0 | §17 use cases, corner-case catalog, existing engines |
 | 0.4.0 | **§12.4 proposed:** extensibility for **additional functions** (registry, parameter kinds, packs, security) |
+| 0.5.0 | Records requirement recorded; **§12.5 proposed:** records, lists, `filter` / `map`, `SUMX` / `FILTER`. Excel-compat corrections above; clarified tokens, cell bounds, empty arguments, direct vs range arguments; deviation table §17.4 |
 
-## Extensibility — please discuss (§12.4, Proposed)
+## Proposed — please discuss
 
-We need a way to add functions beyond the spec tiers without forking the evaluator.
+### Records, lists, and query mode (§12.5)
 
-**Proposal summary:**
+1. **Values** — records and lists in the context; `orders.price` projects a column.
+2. **Aggregations** — `SUM`, `COUNT`, `AVERAGE`, … accept lists and columns with range rules.
+3. **Row-scoped functions** — `SUMX(list, expr)`, `AVERAGEX`, `MINX`, `MAXX`, `COUNTX`, `COUNTAX`, `COUNTROWS`, `FILTER(list, predicate)`.
+4. **One formula, three uses** — `evaluate` (calculation), `filter` (query), `map` (calculated column), plus `compile`.
+5. **Scope** — current record, then outer rows, then the root context.
 
-1. **One registry** — builtins and `ACME.TAX`-style custom functions use the same registration API; builtins must be expressible with that API.
-2. **Options** — `functions: [...]`, `builtins: ["0"] | "all"` to limit surface for untrusted formulas.
-3. **Parameter kinds** — `number`, `string`, `boolean`, `scalar`, `values` (range vs direct tagging), `range`, `lazy` (for `IF`-style branching).
+### Extensibility (§12.4)
+
+1. **One registry** — builtins and `ACME.TAX`-style custom functions use the same registration API.
+2. **Options** — `functions: [...]`, `builtins: ["0"] | "all"`.
+3. **Parameter kinds** — `number`, `string`, `boolean`, `scalar`, `values`, `range`, `lazy`, and (0.5.0) `list` and `perRow` for record functions.
 4. **Naming** — custom functions SHOULD use dotted names (`ACME.TAX`); undotted names reserved for spec functions.
-5. **Contract** — sync only; no whole-context access; thrown errors → host `function` error (not `#VALUE!`) — **is this right?**
-6. **Volatile** — `TODAY`/`NOW` use injectable `clock` for tests.
+5. **Contract** — sync only; no whole-context access; thrown errors → host `function` error.
+6. **Volatile** — `TODAY` / `NOW` use an injectable `clock`.
 7. **Packs** — versioned multi-language function sets ship their own fixtures.
-
-Full text: spec **§12.4** and open questions **§12.4.11**.
-
-## Review findings (2026-10-17, [`spec/REVIEW.md`](./REVIEW.md))
-
-Full write-up and **59 draft fixtures** in [`spec/fixtures/proposed/`](./fixtures/proposed/). Summary for [#4](https://github.com/manishsharma004/excel-formula/issues/4):
-
-### Product requirement: records + query + calculation
-
-- **Aggregations** should accept **lists of records** and **columns** (projected fields), not only cell ranges.
-- A **non-aggregate formula** (e.g. `price * qty`, `region = "EU"`) should work as:
-  - **calculation** — `evaluate(formula, oneRecord)`;
-  - **query** — `filter(formula, rows)`;
-  - **calculated column** — `map(formula, rows)`.
-- Current spec **blocks** this (§4.1 opaque nested objects, §7.1 no list type, §17.4 refuses arrays). REVIEW proposes **Tier R**: `SUMX` / `FILTER` / `COUNTROWS`, scope stack, `filter`/`map`/`compile` API, and `cellReferences` default off for JSON field names like `q1`.
-
-### High-severity Excel-compat bugs in current spec (fix before locking Tier 0)
-
-| Item | Spec / fixture today | Excel |
-|------|----------------------|-------|
-| `"3"=3` | `TRUE` (`equality-numeric-string`) | `FALSE` |
-| `^` associativity | right | **left** (`2^3^2` → 64) |
-| Ordered compare §8.5 | coerces strings to numbers | type order only (`"1">2` → `TRUE`) |
-| `1<2<3` | implied `TRUE` | `FALSE` |
-| `COUNT(TRUE,"3",1)` | 1 | 3 |
-| `0^-1` | `#NUM!` | `#DIV/0!` |
-| `IF(FALSE,1)` | arity error | `FALSE` |
-
-See REVIEW **Part B** for the full list (27 items) and **Part C** for behavior tables.
-
-### Suggested positions on open checkboxes
-
-- Context: **names + records/lists**; cells **opt-in** (`cellReferences`) because `q1` is parsed as cell `Q1`.
-- First release: **Tier 0 + Tier R** (records/query), not only scalar dict rules.
-- §12.4: keep **host `function` error** on throw; **require `lazy`** in the public API for `SUMX`/`FILTER`.
 
 ## Still open (please comment on GitHub #4)
 
-- [ ] **Records / query / Tier R** — adopt REVIEW Part A in `SPEC.md`? (scope fallback, bracket keys, grouping deferred?)
-- [ ] **Excel-compat corrections** — apply REVIEW Part B (will change tier0 fixtures)?
-- [ ] Context model: names only, cells only, or hybrid? (Spec currently: **hybrid flat map**, §6.1; REVIEW: hybrid + records)
-- [ ] Missing keys: blank (lax) vs `#REF!` (strict) — spec §6.4; keep?
+- [ ] **Adopt §12.5** as a tier (“Tier R”), and for which release?
+- [ ] **§12.5.7** — per-row scope fallback vs explicit `ROOT.rate`; does `strict` cover record fields; bracket syntax for keys like `[unit price]` / `[q1]`; default for `cellReferences`; grouping; element-wise arrays
+- [ ] **Numbers at 15 significant digits** — text rendering (`0.1+0.2 & ""` → `"0.3"`) and equality (`0.1+0.2=0.3`)? (§8.2, §8.4)
+- [ ] **Single cell references** — follow range rules like Excel (`SUM(A1)` ignores a `TRUE` in `A1`)? Names stay direct. (§12)
+- [ ] **Strict missing name** — `#NAME?` (Excel) instead of `#REF!`? (§6.4)
+- [ ] Context model: hybrid flat map + records (§6.1, §12.5) — confirm
 - [ ] Dates / serial numbers when Tier 2 lands
 - [ ] Locale beyond `en-US`
 - [ ] Workbook mode (formulas in context values + dependency graph) — defer?
-- [ ] Tier 1 required for first release, or Tier 0 only?
+- [ ] Tier 1 required for first release, or Tier 0 (+ Tier R) only?
 - [ ] **§12.4.11** — custom function throws → host error vs `#VALUE!`? allow builtin `override`? async ever? `LAMBDA` in formula text as second extension path?
 
 ## Next steps
 
-1. Comment on **§12.4** and the open checkboxes on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).
-2. Lock decisions in `spec/SPEC.md` via PRs that reference this issue.
-3. Implement Tier 0 only after the relevant items are agreed.
+1. Decide the open checkboxes on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).
+2. Lock decisions in `spec/SPEC.md`, and promote the matching cases from `spec/fixtures/proposed/`.
+3. Implement Tier 0 (31 fixtures in `spec/fixtures/tier0/`) once the stubs are replaced.

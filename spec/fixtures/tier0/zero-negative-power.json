@@ -1,6 +1,5 @@
 {
   "id": "zero-negative-power",
-  "mode": "evaluate",
   "formula": "0^-1",
   "context": {},
   "expected": {

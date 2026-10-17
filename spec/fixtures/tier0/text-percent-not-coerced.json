@@ -1,0 +1,9 @@
+{
+  "id": "text-percent-not-coerced",
+  "formula": "\"10%\"*1",
+  "context": {},
+  "expected": {
+    "$type": "error",
+    "code": "#VALUE!"
+  }
+}

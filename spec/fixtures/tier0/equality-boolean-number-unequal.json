@@ -1,0 +1,6 @@
+{
+  "id": "equality-boolean-number-unequal",
+  "formula": "TRUE=1",
+  "context": {},
+  "expected": false
+}

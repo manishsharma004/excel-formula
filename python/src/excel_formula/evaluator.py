@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-SpecRevision = "0.1.0"
+SpecRevision = "0.5.0"
 
 
 class EvaluationError(Exception):
-    """Raised when a formula cannot be evaluated (see spec §8)."""
+    """Raised for host errors such as parse failures and limits (see spec §10)."""
 
 
 class Evaluator:
@@ -30,7 +30,7 @@ class Evaluator:
     def evaluate(self, formula: str, context: Mapping[str, Any]) -> Any:
         """Evaluate ``formula`` using ``context`` for reference lookup.
 
-        Not implemented until spec open questions in §11 are resolved.
+        Not implemented yet; behavior is defined in spec §4–§13.
         """
         raise NotImplementedError(
             "Formula evaluation is not implemented yet; see spec/SPEC.md and GitHub issue #4."

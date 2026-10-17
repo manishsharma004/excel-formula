@@ -1,6 +1,5 @@
 {
   "id": "count-direct-error-not-counted",
-  "mode": "evaluate",
   "formula": "COUNT(1, 1/0)",
   "context": {},
   "expected": 1

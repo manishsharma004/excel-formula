@@ -1,6 +1,5 @@
 {
   "id": "if-two-args",
-  "mode": "evaluate",
   "formula": "IF(FALSE, 1)",
   "context": {},
   "expected": false

@@ -1,6 +1,5 @@
 {
   "id": "round-decimal-half",
-  "mode": "evaluate",
   "formula": "ROUND(2.675, 2)",
   "context": {},
   "expected": 2.68

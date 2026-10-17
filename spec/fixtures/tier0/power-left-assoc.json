@@ -1,6 +1,5 @@
 {
   "id": "power-left-assoc",
-  "mode": "evaluate",
   "formula": "2^3^2",
   "context": {},
   "expected": 64

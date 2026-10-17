@@ -1,6 +1,5 @@
 {
   "id": "text-greater-than-number-no-coercion",
-  "mode": "evaluate",
   "formula": "\"1\">2",
   "context": {},
   "expected": true

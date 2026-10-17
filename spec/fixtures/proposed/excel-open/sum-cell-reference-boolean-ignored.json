@@ -1,0 +1,9 @@
+{
+  "id": "sum-cell-reference-boolean-ignored",
+  "mode": "evaluate",
+  "formula": "SUM(A1, 1)",
+  "context": {
+    "A1": true
+  },
+  "expected": 1
+}

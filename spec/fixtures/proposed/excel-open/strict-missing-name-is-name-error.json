@@ -1,0 +1,13 @@
+{
+  "id": "strict-missing-name-is-name-error",
+  "mode": "evaluate",
+  "formula": "missing + 1",
+  "context": {},
+  "options": {
+    "strict": true
+  },
+  "expected": {
+    "$type": "error",
+    "code": "#NAME?"
+  }
+}

@@ -1,14 +1,85 @@
 # Review: `spec/SPEC.md` and issue #4
 
-Reviewed: [`SPEC.md`](./SPEC.md) revision **0.4.0** on `main`, the [issue #4](https://github.com/manishsharma004/excel-formula/issues/4) body, [`DISCUSSION_ISSUE.md`](./DISCUSSION_ISSUE.md), tier-0 fixtures, and the records/query requirement below.
+**Status:** Informative. Two passes:
 
-**Status:** Informative design review — not normative until merged into `SPEC.md` via a follow-up PR.
+1. **First review** of spec **0.4.0** (Parts A–C below, unchanged except for cross-reference fixes).
+2. **Second review** after the first was merged. It re-read spec 0.4.0, the fixtures, and issue #4 (one comment, no new decisions), and produced spec **0.5.0**. Its results come first, so the status of every finding is in one place.
+
+---
+
+## Second review — status after spec 0.5.0
+
+### What 0.5.0 changed
+
+- **Recorded the requirement** (§2.1): aggregations accept lists of records, and a formula without aggregation is both a calculation and a query.
+- **Added the records design as Proposed** (§12.5), condensed from Part A.
+- **Applied every Excel-compat correction** that is a plain error against the spec’s own compatibility target. Left the real design choices **Open**, and listed the deliberate deviations in a new §17.4.
+- **Moved fixtures:**
+  - 12 corrected Excel cases to `tier0/`, and `round-decimal-half` to a new `tier1/`.
+  - Replaced `tier0/equality-numeric-string` (expected `TRUE`, which was wrong) with `equality-text-number-unequal`.
+  - Added 6 tier-0 cases for the clarified rules, and 3 new Open cases.
+
+### Status of each first-review finding
+
+| # | Finding (Part B) | Status in 0.5.0 | Where |
+|---|------------------|-----------------|-------|
+| 1 | `"3"=3` is `FALSE` | **Applied.** Comparisons never coerce | §8.4; `tier0/equality-text-number-unequal` |
+| 2 | `^` is left-associative | **Applied** | §5.2, §5.3; `tier0/power-left-assoc` |
+| 3 | §8.5 step 3 coerced to numbers | **Applied.** Ordered comparison is by type | §8.5; `tier0/text-greater-than-number-no-coercion`, `boolean-greater-than-number` |
+| 4 | `1<2<3` is `FALSE` | **Applied** | §5.2, §17.3; `tier0/chained-comparison` |
+| 5 | Blank takes the other side’s type | **Applied** to `=` and to `<` | §8.4, §8.5; `tier0/blank-vs-false-ordered` |
+| 6 | `COUNT` direct arguments | **Applied** | §12.1; `tier0/count-direct-*` |
+| 7 | `0^-1` is `#DIV/0!` | **Applied** | §13, §9; `tier0/zero-negative-power` |
+| 8 | Two-argument `IF` | **Applied** | §12.1; `tier0/if-two-args` |
+| 9 | `"10%"` text not converted | **Kept** as a deliberate deviation | §8.1, §17.4; `tier0/text-percent-not-coerced` |
+| 10 | Number to text at 15 digits | **Open** | §8.2, §18; `proposed/excel-open/number-to-text-15-digits` |
+| 11 | Equality at 15 digits | **Open** | §8.4, §18; `proposed/excel-open/equality-15-significant-digits` |
+| 12 | Decimal `ROUND` | **Applied** (15 significant digits) | §12.2; `tier1/round-decimal-half` |
+| 13 | `#NAME?` vs `#REF!` for missing names | **Open**, listed as a deviation | §6.4, §9, §17.4; `proposed/excel-open/strict-missing-name-is-name-error` |
+| 14 | Revision header mismatch | **Resolved** before 0.5.0 (PR #7) | — |
+| 15 | `maxFunctionArgs` sentence | **Applied** | §4.2 |
+| 16 | `strict` vs `strict` | **Applied** | §4.4 |
+| 17 | §14 said no user-defined functions | **Applied** | §14 |
+| 18 | `maxFormulaLength` unit | **Applied.** UTF-16 code units | §4.2 |
+| 19 | Cell bounds | **Applied.** After `XFD`, row 0, or after 1048576 → `#REF!` | §5.1, §6.3; `tier0/cell-column-out-of-range`, `cell-row-zero-out-of-range` |
+| 20 | Number token | **Applied.** Exact regex | §5.1 |
+| 21 | Identifier dots | **Applied.** Dot-separated segments | §5.1 |
+| 22 | Empty arguments | **Applied.** Parse error (Excel’s form Deferred) | §5.2, §17.4; `tier0/empty-argument-is-parse-error` |
+| 23 | Cell-shaped field names (`q1`) | **Proposed**: `cellReferences` option; default Open | §6.2, §12.5.4 |
+| 24 | “Leftmost error” wording | **Applied** | §9 |
+| 25 | `ACME.TAX` vs paths | **Proposed**: exact key first, `(` decides a call | §12.5.1 |
+| 26 | `$type` collisions | **Applied**: key reserved. Escape wrapper Proposed | §7.2 |
+| 27 | Volatile-result shape | Still **Open** | §12.4.7 |
+
+Part A (records design) is now §12.5, **Proposed**. Its open questions are §12.5.7.
+
+### New findings in the second review
+
+| # | Finding | Resolution |
+|---|---------|------------|
+| 28 | Part A said `SUMX` and `FILTER` take a `lazy` argument. §12.4.4 defines `lazy` as “evaluated at most once”, but these functions evaluate it once **per row**. | Spec 0.5.0 adds parameter kinds `perRow` (callable many times, each with a record pushed as scope) and `list` (§12.4.4). Part A is updated to say `perRow`. |
+| 29 | **`FILTER` name collision.** §12.3 listed Excel’s array `FILTER(array, include)` under Tier 3, and §12.4.3 reserves undotted names for the spec. The record `FILTER(list, predicate)` takes a per-row formula, so one name cannot serve both. | Removed `FILTER` from the Tier 3 list. A future Excel-style array `FILTER` would need another name, or a rule that tells the two forms apart (§12.3). |
+| 30 | **Direct vs reference arguments were undefined** for names and single cells. In Excel, `SUM(A1)` with `A1` = `TRUE` is `0`, because a cell reference follows range rules. The spec never said whether a name or a single cell is “direct”. | §3 and §12 now define both as **direct** in this revision. Names stay direct (`tier0/sum-name-boolean-is-direct`). Excel’s rule for **cell** references is Open (`proposed/excel-open/sum-cell-reference-boolean-ignored`). This also fixes the meaning of `AND(paid, …)` in the record cases: a missing `paid` is a direct blank, so it is `FALSE`. |
+| 31 | **Broken links.** The issue #4 body and the review comment pointed at the branch `cursor-agent/spec-review-records-3188`, which was deleted after its pull requests were merged or closed. | Issue body and mirror now link to `main`. |
+| 32 | **`TRUE=1` had no fixture**, although it is the case most often “fixed” in implementations. | Added `tier0/equality-boolean-number-unequal`. |
+
+### Still to decide on issue #4
+
+1. Adopt §12.5 (records, lists, `filter` / `map`, `SUMX` / `FILTER`) as a tier, and in which release.
+2. §12.5.7: per-row scope fallback vs `ROOT.rate`; whether `strict` covers record fields; a bracket syntax for awkward keys; the default for `cellReferences`; grouping; element-wise arrays.
+3. Spec §18 #8–#10: numbers at 15 significant digits (text and equality), reference rules for single cells, `#NAME?` for strict missing names.
+
+---
+
+# First review (spec 0.4.0)
+
+The sections below are the original review. Section numbers refer to spec 0.4.0 unless noted.
 
 New requirement from the reviewer:
 
 > Aggregation functions must accept **arrays of records**. A normal formula (one with no aggregation function) must work both as a **query formula** (a filter predicate over records) and as a **calculation formula** (a value computed from one record).
 
-The current spec cannot express this. §4.1 makes nested objects opaque (`#VALUE!`), §7.1 has no list or record type, §7.2 says any JSON object that is not an error wrapper is illegal, and §17.4 refuses arrays. So the requirement needs a new value model, a scoping rule, and a query API, not only new functions. Part A proposes that design. Part B lists corrections to the existing text, where several claims about Excel are wrong. Part C has behavior cases with examples, ready to become fixtures.
+The current spec cannot express this. §4.1 makes nested objects opaque (`#VALUE!`), §7.1 has no list or record type, §7.2 says any JSON object that is not an error wrapper is illegal, and §17.4 (now §17.5) refuses arrays. So the requirement needs a new value model, a scoping rule, and a query API, not only new functions. Part A proposes that design. Part B lists corrections to the existing text, where several claims about Excel are wrong. Part C has behavior cases with examples, ready to become fixtures.
 
 ---
 
@@ -22,7 +93,7 @@ The current spec cannot express this. §4.1 makes nested objects opaque (`#VALUE
 | A2 | Field access | Dotted path `customer.address.city`. Each segment looks up one key in a record. |
 | A3 | Projection | A path that passes through a list produces a **column**: one value per element, in array order. `orders.amount` → `[a1, a2, …]`. Nested lists flatten one level per hop: `orders.items.qty` is every item's `qty` across all orders, depth-first in array order. |
 | A4 | Collection arguments | Aggregations (`SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTA`, `AND`, `OR`, `CONCAT`) accept a list or column wherever they accept a range. Elements use **from-range** membership rules (§12.1): text and booleans are ignored by `SUM`, blanks are ignored, errors propagate (except in `COUNT`/`COUNTA`). |
-| A5 | Row-scoped aggregations | New functions take a list of records plus a **row formula** that is evaluated once per record: `SUMX(list, expr)`, `AVERAGEX`, `MINX`, `MAXX`, `COUNTX`, `COUNTAX`, plus `COUNTROWS(list)` and `FILTER(list, predicate)`. `expr` and `predicate` are `lazy` parameters (§12.4.4), so this needs no private hooks. |
+| A5 | Row-scoped aggregations | New functions take a list of records plus a **row formula** that is evaluated once per record: `SUMX(list, expr)`, `AVERAGEX`, `MINX`, `MAXX`, `COUNTX`, `COUNTAX`, plus `COUNTROWS(list)` and `FILTER(list, predicate)`. `expr` and `predicate` are `perRow` parameters (a function of one record, callable many times; see second review #28), so this needs no private hooks. |
 | A6 | One formula, three uses | A formula with no aggregation is a **row formula**. The same text works in `evaluate` (one record, calculation), in `filter` (many records, query), in `map` (many records, calculated column), and as the `expr` or `predicate` argument of A5 functions. |
 | A7 | Scope | Inside a row (in `filter`/`map`, or inside an A5 function), a name resolves first to the **current record**, then to enclosing rows (for nested iterators), then to the root context. |
 | A8 | No implicit lifting | `orders.price * orders.qty` is `#VALUE!` in this revision. Use `SUMX(orders, price * qty)`. Element-wise array arithmetic in the style of Excel 365 is a separate decision (A.6). |
@@ -74,12 +145,12 @@ Rules:
 | Function | Params | Result | Empty list |
 |----------|--------|--------|------------|
 | `COUNTROWS(list)` | `list` | Number of elements | `0` |
-| `FILTER(list, predicate)` | `list`, `lazy` | List of the records whose predicate is TRUE (§8.3). An error in a predicate propagates as the result, as Excel's `FILTER` does. | Empty list |
-| `SUMX(list, expr)` | `list`, `lazy` | Invariant A.2 with `SUM` | `0` |
-| `AVERAGEX(list, expr)` | `list`, `lazy` | Invariant A.2 with `AVERAGE` | `#DIV/0!` |
-| `MINX` / `MAXX(list, expr)` | `list`, `lazy` | Invariant A.2 with `MIN`/`MAX` | `0` (Excel `MIN` rule) |
-| `COUNTX(list, expr)` | `list`, `lazy` | Counts numeric results; errors ignored | `0` |
-| `COUNTAX(list, expr)` | `list`, `lazy` | Counts non-blank results | `0` |
+| `FILTER(list, predicate)` | `list`, `perRow` | List of the records whose predicate is TRUE (§8.3). An error in a predicate propagates as the result, as Excel's `FILTER` does. | Empty list |
+| `SUMX(list, expr)` | `list`, `perRow` | Invariant A.2 with `SUM` | `0` |
+| `AVERAGEX(list, expr)` | `list`, `perRow` | Invariant A.2 with `AVERAGE` | `#DIV/0!` |
+| `MINX` / `MAXX(list, expr)` | `list`, `perRow` | Invariant A.2 with `MIN`/`MAX` | `0` (Excel `MIN` rule) |
+| `COUNTX(list, expr)` | `list`, `perRow` | Counts numeric results; errors ignored | `0` |
+| `COUNTAX(list, expr)` | `list`, `perRow` | Counts non-blank results | `0` |
 
 This also requires a parameter kind `list` in §12.4.4: the implementation receives a list, and a scalar argument is `#VALUE!`. A column (A3) is a list of scalars, so `COUNTROWS(orders.items)` counts all items.
 
@@ -87,10 +158,10 @@ Excel-style conditional aggregates on columns (`SUMIFS(orders.amount, orders.reg
 
 ### A.6 Open questions this adds to issue #4
 
-1. **Per-row name fallback (A7).** If one record lacks `rate`, `qty*rate` silently uses the root `rate` for that row (case R-G2). That is convenient for `amount > threshold`, but it is a trap with heterogeneous records. Should there be an explicit qualifier, for example `ROOT.rate`, or `@rate` meaning "current row only"?
+1. **Per-row name fallback (A7).** If one record lacks `rate`, `qty*rate` silently uses the root `rate` for that row (case R-D2). That is convenient for `amount > threshold`, but it is a trap with heterogeneous records. Should there be an explicit qualifier, for example `ROOT.rate`, or `@rate` meaning "current row only"?
 2. **Missing field vs missing name.** Records are often sparse. Should `strict` cover missing record fields, or only top-level names? A separate `missingField: "blank" | "error"` option is one choice.
 3. **Keys that are not identifiers.** Keys with spaces or hyphens, keys starting with a digit, and cell-shaped keys (`q1`, `vat20`, `area51`) cannot be written today. Proposal: bracket escape `[unit price]`, `order.[q1]`, borrowed from Excel structured references.
-4. **Element-wise lifting** in the style of Excel 365 (`SUM(orders.price * orders.qty)`, `orders.price > 10` returning a boolean column). That needs a real array type. Defer it, but say so in §17.4.
+4. **Element-wise lifting** in the style of Excel 365 (`SUM(orders.price * orders.qty)`, `orders.price > 10` returning a boolean column). That needs a real array type. Defer it, but say so in the spec’s “corners we refuse” section (§17.5 in 0.5.0).
 5. **Grouping** (`groupBy(keyFormula, aggFormula, rows)`): defer it, or define it now?
 6. **JSON escaping** for real records that contain a `$type` key (§7.2 wrapper collision). Proposal: `{"$type":"record","value":{…}}`.
 
@@ -98,7 +169,7 @@ Excel-style conditional aggregates on columns (`SUMIFS(orders.amount, orders.reg
 
 | Section | Change |
 |---------|--------|
-| §1 Non-goals, §17.4 | Arrays are no longer refused as **inputs**. Array **results** and array arithmetic stay deferred. |
+| §1 Non-goals, §17.4 (now §17.5) | Arrays are no longer refused as **inputs**. Array **results** and array arithmetic stay deferred. |
 | §3 Terminology | Add Record, List, Column, Row scope, Row formula, Aggregate formula. |
 | §4 | Add `filter`, `map`, `compile`, `onRowError`, `maxRows`, host error `row`. |
 | §4.1 | Remove "nested objects are opaque → `#VALUE!`". |
@@ -161,7 +232,7 @@ Severity: **High** means the spec states Excel behavior incorrectly, or contradi
 | Dates | Still defer, but reserve a JSON wrapper (`{"$type":"date","value":"2026-10-17"}`) now, so records that carry ISO strings are not mistaken for dates later. |
 | Tier 1 for first release? | Tier 0 + Tier R (records). Tier R is the stated product requirement; Tier 1 text functions are less critical. |
 | §12.4.11 Q1 (throw → host error) | Agree with host error `function`. |
-| §12.4.11 Q4 (`lazy` for custom functions) | Yes. Tier R (`SUMX`, `FILTER`) needs `lazy` plus row scope through the public API, which proves the registry design. The call context must expose "evaluate this thunk with this record pushed as a scope". |
+| §12.4.11 Q4 (`lazy` for custom functions) | Yes, and Tier R needs more than `lazy`: `SUMX` and `FILTER` evaluate their argument once per row, with that row pushed as a scope. Spec 0.5.0 adds a `perRow` parameter kind for this (§12.4.4). |
 
 ---
 
@@ -295,4 +366,4 @@ Context: `{ "none": [] }`.
 | X-14 | `0.1+0.2 & ""` | `{}` | `"0.30000000000000004"` | `"0.3"` |
 | X-15 | `"10%"*1` | `{}` | `#VALUE!` | `0.1` (or keep `#VALUE!` and list it as a deviation) |
 
-Fixture JSON for many of these cases is in `proposed-fixtures/` next to this file.
+Fixture JSON for these cases: records in [`fixtures/proposed/records/`](fixtures/proposed/records/); the Excel cases X-1 to X-13 now live in [`fixtures/tier0/`](fixtures/tier0/) and [`fixtures/tier1/`](fixtures/tier1/), and X-14, X-15 are covered by [`fixtures/proposed/excel-open/`](fixtures/proposed/excel-open/) and `tier0/text-percent-not-coerced`. Every case is explained in [`fixtures/proposed/README.md`](fixtures/proposed/README.md).

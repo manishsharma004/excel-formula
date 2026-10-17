@@ -1,6 +1,5 @@
 {
   "id": "chained-comparison",
-  "mode": "evaluate",
   "formula": "1<2<3",
   "context": {},
   "expected": false

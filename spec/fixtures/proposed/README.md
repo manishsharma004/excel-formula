@@ -1,6 +1,13 @@
 # Proposed fixtures — use cases, scenarios, and cases
 
-This directory holds **draft** JSON cases. They are **not** required for conformance until a later spec revision promotes them. The machine-readable files stay next to this document. The review that motivated them is [`REVIEW.md`](../../REVIEW.md).
+This directory holds **draft** JSON cases for behavior that `SPEC.md` marks **Proposed** or **Open**. They are **not** required for conformance. The machine-readable files stay next to this document. The review that motivated them is [`REVIEW.md`](../../REVIEW.md).
+
+| Subdirectory | Spec status | What it covers |
+|--------------|-------------|----------------|
+| `records/` | Proposed — [§12.5](../../SPEC.md) | Records, lists, `filter` / `map`, row-scoped aggregations |
+| `excel-open/` | Open — §8.2, §8.4, §12, §6.4 | Excel behaviors the spec has not decided to match yet |
+
+The Excel corrections that spec **0.5.0** adopted are no longer here. They are conformance fixtures now: 12 in [`../tier0/`](../tier0/) and `round-decimal-half` in [`../tier1/`](../tier1/). Scenario S11 lists them so the story stays in one place.
 
 This page answers three questions:
 
@@ -73,9 +80,9 @@ Covered by: `path-nested-record`, `path-through-blank`, `path-into-scalar`, `pat
 
 ### U6 — Same formula language as Excel, on purpose
 
-Scalar cases that do **not** use records. They exist because the current spec disagrees with Excel, and locking the wrong fixture would make both languages wrong together.
+Scalar cases that do **not** use records. Users copy formulas from Excel and expect the same answer. Where the spec used to disagree with Excel, 0.5.0 fixed the rule and moved the case into `tier0/` or `tier1/`. Where the spec has not decided yet, the case stays in `excel-open/` with Excel’s answer as the expectation.
 
-Covered by every file under `excel-corrections/`.
+Covered by: the four files under `excel-open/`, plus the promoted cases listed in S11.
 
 ---
 
@@ -223,26 +230,38 @@ Formula `q1 * 2`, context `{ "q1": 100 }`, option `cellReferences: false`.
 
 If cell references stay on, `q1` is cell `Q1`, the key is never read, and lax mode treats the missing cell as blank, so the product is 0. That silent zero is why record/query mode should not treat identifiers as cells unless the caller asks.
 
-### S11 — Excel scalar behavior the spec currently gets wrong
+### S11 — Excel scalar behavior: fixed in 0.5.0, and still open
 
-These cases have an **empty context**. They do not use records. Each one is a behavior desktop Excel shows, and that the current spec or a tier-0 fixture describes differently. Full rationale is in REVIEW.md Part B.
+These cases have an **empty context** unless noted. They do not use records.
 
-| Case | Formula | We expect | What people often implement instead |
-|------|---------|-----------|-------------------------------------|
-| `equality-text-number-unequal` | `"3"=3` | FALSE | TRUE, because `"3"+1` is 4. Equality does **not** coerce. |
-| `inequality-text-number` | `"3"<>3` | TRUE | FALSE, as the pair of the row above. |
-| `power-left-assoc` | `2^3^2` | 64 | 512, if `^` is right-associative like mathematics. Excel goes left to right: `(2^3)^2`. |
-| `chained-comparison` | `1<2<3` | FALSE | TRUE, if comparison chains like Python. Excel does `(1<2)<3`, and `TRUE<3` is false because booleans sort after numbers. |
-| `boolean-greater-than-number` | `TRUE>1` | TRUE | FALSE, if `TRUE` becomes 1 before comparing. |
-| `text-greater-than-number-no-coercion` | `"1">2` | TRUE | FALSE, if the string is parsed as 1. Ordered comparison does not parse text. Text sorts after numbers, so any text is greater than any number. |
-| `blank-vs-false-ordered` | `missing<FALSE` | FALSE | TRUE, if blank is always the number 0 and then “number < boolean.” Blank takes the other side’s empty value, here `FALSE`. |
-| `blank-equals-empty-string` | `missing=""` | TRUE | This one already matches Excel and the current spec. It is here so the blank rule is tested next to the ordered-compare case. |
-| `zero-negative-power` | `0^-1` | `#DIV/0!` | `#NUM!`, if every non-finite power is `#NUM!`. Zero to a negative power is division by zero. |
-| `if-two-args` | `IF(FALSE, 1)` | FALSE | `#VALUE!`, if `IF` requires three arguments. The false branch defaults to FALSE. |
-| `count-direct-boolean-and-numeric-text` | `COUNT(TRUE, "3", 1)` | 3 | 1, if only real numbers count. Typed directly, booleans and numeric text count. |
-| `count-direct-error-not-counted` | `COUNT(1, 1/0)` | 1 | `#DIV/0!`, if a direct error always propagates. `COUNT` skips it. |
-| `round-decimal-half` | `ROUND(2.675, 2)` | 2.68 | 2.67, if you scale the binary64 value by 100 and round. Excel rounds the 15-digit decimal representation. |
-| `number-to-text-15-digits` | `0.1+0.2 & ""` | `"0.3"` | `"0.30000000000000004"`, if you use the shortest binary64 dump. Excel’s general format uses at most 15 significant digits. |
+**Fixed in spec 0.5.0.** The spec used to describe these differently from Excel. The rule is now normative, and the fixture moved to a conformance directory.
+
+| Case | Now in | Formula | Expected | What people often implement instead |
+|------|--------|---------|----------|-------------------------------------|
+| `equality-text-number-unequal` | `tier0/` | `"3"=3` | FALSE | TRUE, because `"3"+1` is 4. Comparisons do **not** coerce (§8.4). Replaces the old `equality-numeric-string`, which expected TRUE. |
+| `inequality-text-number` | `tier0/` | `"3"<>3` | TRUE | FALSE, as the pair of the row above. |
+| `power-left-assoc` | `tier0/` | `2^3^2` | 64 | 512, if `^` is right-associative like mathematics. Excel goes left to right: `(2^3)^2`. |
+| `chained-comparison` | `tier0/` | `1<2<3` | FALSE | TRUE, if comparison chains like Python. Excel does `(1<2)<3`, and `TRUE<3` is false because booleans sort after numbers. |
+| `boolean-greater-than-number` | `tier0/` | `TRUE>1` | TRUE | FALSE, if `TRUE` becomes 1 before comparing. |
+| `text-greater-than-number-no-coercion` | `tier0/` | `"1">2` | TRUE | FALSE, if the string is parsed as 1. Any text sorts after any number. |
+| `blank-vs-false-ordered` | `tier0/` | `missing<FALSE` | FALSE | TRUE, if blank is always the number 0 and then “number < boolean.” Blank takes the other side’s empty value, here `FALSE`. |
+| `blank-equals-empty-string` | `tier0/` | `missing=""` | TRUE | Already correct before 0.5.0. It sits beside the ordered case so the two blank rules stay tested together. |
+| `zero-negative-power` | `tier0/` | `0^-1` | `#DIV/0!` | `#NUM!`, if every non-finite power is `#NUM!`. |
+| `if-two-args` | `tier0/` | `IF(FALSE, 1)` | FALSE | `#VALUE!`, if `IF` requires three arguments. |
+| `count-direct-boolean-and-numeric-text` | `tier0/` | `COUNT(TRUE, "3", 1)` | 3 | 1, if only real numbers count. Typed directly, booleans and numeric text count. |
+| `count-direct-error-not-counted` | `tier0/` | `COUNT(1, 1/0)` | 1 | `#DIV/0!`, if a direct error always propagates. `COUNT` skips it. |
+| `round-decimal-half` | `tier1/` | `ROUND(2.675, 2)` | 2.68 | 2.67, if you scale the binary64 value by 100 and round. |
+
+0.5.0 also added tier-0 cases for rules it clarified rather than reversed: `equality-boolean-number-unequal` (`TRUE=1` is FALSE), `cell-column-out-of-range` (`ZZZ1` is `#REF!`), `cell-row-zero-out-of-range` (`A0 + 1` is `#REF!`), `empty-argument-is-parse-error` (`IF(TRUE,,1)`), `sum-name-boolean-is-direct` (`SUM(flag, 1)` with `flag` TRUE is 2), and `text-percent-not-coerced` (`"10%"*1` is `#VALUE!`, a deliberate deviation listed in §17.4).
+
+**Still open (`excel-open/`).** Excel’s answer is the expectation, but the spec has not adopted it. Each one is a question on issue #4.
+
+| Case | Formula | Excel | Spec 0.5.0 today | Open question |
+|------|---------|-------|------------------|---------------|
+| `number-to-text-15-digits` | `0.1+0.2 & ""` | `"0.3"` | `"0.30000000000000004"` (shortest round-trip, §8.2) | Use Excel’s 15-significant-digit General format? |
+| `equality-15-significant-digits` | `0.1+0.2=0.3` | TRUE | FALSE (exact binary64, §8.4) | Compare numbers at 15 significant digits? This decides whether a rule like `total = 0.3` works. |
+| `sum-cell-reference-boolean-ignored` | `SUM(A1, 1)` with `A1` TRUE | 1 | 2 (a single cell is a direct argument, §12) | Should a single cell reference follow range rules, as in Excel? Names would stay direct. |
+| `strict-missing-name-is-name-error` | `missing + 1`, `strict: true` | `#NAME?` | `#REF!` (§6.4) | Switch strict mode to `#NAME?` for names? |
 
 ---
 
@@ -657,107 +676,43 @@ Every JSON file, in the same order as the stories above where possible. “Case�
 - **Expected:** 200
 - **What it checks:** `q1` is a field. It is not cell `Q1`. With cell references left on, this formula would see a missing cell and return 0.
 
-### Excel corrections (`excel-corrections/`)
+### Excel open questions (`excel-open/`)
 
-These are U6, scenario S11. Context is empty unless noted. Each expected value is the Excel result.
-
-#### `equality-text-number-unequal`
-
-- **File:** `excel-corrections/equality-text-number-unequal.json`
-- **Formula:** `"3"=3`
-- **Expected:** FALSE
-- **What it checks:** `=` does not turn numeric text into a number. The current tier-0 fixture `equality-numeric-string` expects TRUE and should be flipped if this is accepted.
-
-#### `inequality-text-number`
-
-- **File:** `excel-corrections/inequality-text-number.json`
-- **Formula:** `"3"<>3`
-- **Expected:** TRUE
-- **What it checks:** the matching `<>` case. Unlike types are not equal.
-
-#### `power-left-assoc`
-
-- **File:** `excel-corrections/power-left-assoc.json`
-- **Formula:** `2^3^2`
-- **Expected:** 64
-- **What it checks:** `(2^3)^2`, not `2^(3^2)`.
-
-#### `chained-comparison`
-
-- **File:** `excel-corrections/chained-comparison.json`
-- **Formula:** `1<2<3`
-- **Expected:** FALSE
-- **What it checks:** `(1<2)<3` → `TRUE<3`. A boolean is greater than a number, so the second comparison is false.
-
-#### `boolean-greater-than-number`
-
-- **File:** `excel-corrections/boolean-greater-than-number.json`
-- **Formula:** `TRUE>1`
-- **Expected:** TRUE
-- **What it checks:** order is number, then text, then boolean. `TRUE` is not coerced to 1 before `<` or `>`.
-
-#### `text-greater-than-number-no-coercion`
-
-- **File:** `excel-corrections/text-greater-than-number-no-coercion.json`
-- **Formula:** `"1">2`
-- **Expected:** TRUE
-- **What it checks:** `"1"` stays text. Text is greater than every number, even though `"1"` looks smaller than 2.
-
-#### `blank-vs-false-ordered`
-
-- **File:** `excel-corrections/blank-vs-false-ordered.json`
-- **Formula:** `missing<FALSE`
-- **Expected:** FALSE
-- **What it checks:** blank compared with a boolean behaves as `FALSE`, not as the number 0. `FALSE<FALSE` is false.
-
-#### `blank-equals-empty-string`
-
-- **File:** `excel-corrections/blank-equals-empty-string.json`
-- **Formula:** `missing=""`
-- **Expected:** TRUE
-- **What it checks:** blank equals empty text (and also equals 0 and FALSE). This case agrees with the current spec; it sits beside the ordered-compare case so the two blank rules are not merged into one.
-
-#### `zero-negative-power`
-
-- **File:** `excel-corrections/zero-negative-power.json`
-- **Formula:** `0^-1`
-- **Expected:** `#DIV/0!`
-- **What it checks:** negative exponent on base 0 is division by zero, not a generic `#NUM!`.
-
-#### `if-two-args`
-
-- **File:** `excel-corrections/if-two-args.json`
-- **Formula:** `IF(FALSE, 1)`
-- **Expected:** FALSE
-- **What it checks:** the third argument may be omitted. A false condition with no else branch returns FALSE, not `#VALUE!`.
-
-#### `count-direct-boolean-and-numeric-text`
-
-- **File:** `excel-corrections/count-direct-boolean-and-numeric-text.json`
-- **Formula:** `COUNT(TRUE, "3", 1)`
-- **Expected:** 3
-- **What it checks:** arguments written directly in the call count booleans and numeric text. The same values inside a range would not all count.
-
-#### `count-direct-error-not-counted`
-
-- **File:** `excel-corrections/count-direct-error-not-counted.json`
-- **Formula:** `COUNT(1, 1/0)`
-- **Expected:** 1
-- **What it checks:** `COUNT` does not return the `#DIV/0!` from `1/0`. It counts the 1 and skips the error.
-
-#### `round-decimal-half`
-
-- **File:** `excel-corrections/round-decimal-half.json`
-- **Formula:** `ROUND(2.675, 2)`
-- **Expected:** 2.68
-- **What it checks:** half rounds away from zero on the decimal value Excel shows, not on the binary64 residue of `2.675`.
+These are U6, the “still open” half of scenario S11. Context is empty unless noted. The expected value is **Excel’s** answer. Spec 0.5.0 currently gives a different answer, shown under “Spec today”. A runner MUST NOT treat these as conformance cases.
 
 #### `number-to-text-15-digits`
 
-- **File:** `excel-corrections/number-to-text-15-digits.json`
+- **File:** `excel-open/number-to-text-15-digits.json`
 - **Formula:** `0.1+0.2 & ""`
-- **Expected:** `"0.3"`
-- **What it checks:** converting a number to text for `&` uses at most 15 significant digits, so the classic binary64 sum renders as `0.3`.
+- **Expected (Excel):** `"0.3"`
+- **Spec today:** `"0.30000000000000004"` (shortest round-trip, §8.2).
+- **What it checks:** converting a number to text for `&` uses at most 15 significant digits. This matters wherever numbers are shown or concatenated into messages.
+
+#### `equality-15-significant-digits`
+
+- **File:** `excel-open/equality-15-significant-digits.json`
+- **Formula:** `0.1+0.2=0.3`
+- **Expected (Excel):** TRUE
+- **Spec today:** FALSE (exact binary64 comparison, §8.4).
+- **What it checks:** whether near-equal results compare equal. A business rule such as `total = 0.3` or `balance = 0` after arithmetic depends on this.
+
+#### `sum-cell-reference-boolean-ignored`
+
+- **File:** `excel-open/sum-cell-reference-boolean-ignored.json`
+- **Formula:** `SUM(A1, 1)`
+- **Inputs:** `{ "A1": true }`.
+- **Expected (Excel):** 1
+- **Spec today:** 2. A single cell reference is a **direct** argument, so `TRUE` counts as 1 (§12, “Direct arguments and references”).
+- **What it checks:** Excel treats `A1` like a one-cell range, so the boolean is skipped. The open question is whether cell references should follow range rules while names stay direct. Its tier-0 counterpart, `sum-name-boolean-is-direct`, locks the rule for names.
+
+#### `strict-missing-name-is-name-error`
+
+- **File:** `excel-open/strict-missing-name-is-name-error.json`
+- **Formula:** `missing + 1`
+- **Options:** `strict: true`
+- **Expected (Excel):** `#NAME?`
+- **Spec today:** `#REF!` (§6.4, tier-0 fixture `missing-name-strict`).
+- **What it checks:** which error a typo in a name produces. Excel reports an undefined name as `#NAME?`; the spec keeps `#REF!` for both missing names and missing cells.
 
 ---
 
@@ -766,7 +721,9 @@ These are U6, scenario S11. Context is empty unless noted. Each expected value i
 | Group | Files | Use cases |
 |-------|------:|-----------|
 | `records/` | 45 | U1–U5, scenarios S1–S10 |
-| `excel-corrections/` | 14 | U6, scenario S11 |
-| **Total** | **59** | |
+| `excel-open/` | 4 | U6, scenario S11 (open half) |
+| **Total in this directory** | **49** | |
 
-When a case is accepted, move its JSON into `tier0/` or a new tier directory and point this page at the spec section that now requires it.
+Promoted by spec 0.5.0: 12 cases to `tier0/` and 1 to `tier1/` (listed in S11).
+
+When a case is accepted, move its JSON into `tier0/` or a tier directory, drop the `mode` field if it is `evaluate`, and update this page.

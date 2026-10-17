@@ -1,0 +1,9 @@
+{
+  "id": "empty-argument-is-parse-error",
+  "formula": "IF(TRUE,,1)",
+  "context": {},
+  "expected": {
+    "$type": "host",
+    "kind": "parse"
+  }
+}

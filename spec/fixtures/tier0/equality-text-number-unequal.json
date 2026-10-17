@@ -1,6 +1,5 @@
 {
   "id": "equality-text-number-unequal",
-  "mode": "evaluate",
   "formula": "\"3\"=3",
   "context": {},
   "expected": false

@@ -1,0 +1,9 @@
+{
+  "id": "cell-column-out-of-range",
+  "formula": "ZZZ1",
+  "context": {},
+  "expected": {
+    "$type": "error",
+    "code": "#REF!"
+  }
+}
