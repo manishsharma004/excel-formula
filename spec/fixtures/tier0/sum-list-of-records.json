@@ -1,0 +1,8 @@
+{
+  "id": "sum-list-of-records",
+  "formula": "SUM(orders)",
+  "context": {
+    "orders": [{ "price": 10 }, { "price": 5 }]
+  },
+  "expected": { "$type": "error", "code": "#VALUE!" }
+}

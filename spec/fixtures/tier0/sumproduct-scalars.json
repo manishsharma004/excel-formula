@@ -1,0 +1,6 @@
+{
+  "id": "sumproduct-scalars",
+  "formula": "SUMPRODUCT(2, 3)",
+  "context": {},
+  "expected": 6
+}

@@ -1,0 +1,9 @@
+{
+  "id": "dotted-key-wins",
+  "formula": "tax.rate",
+  "context": {
+    "tax.rate": 0.2,
+    "tax": { "rate": 0.1 }
+  },
+  "expected": 0.2
+}

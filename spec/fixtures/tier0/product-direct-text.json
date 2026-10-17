@@ -1,0 +1,6 @@
+{
+  "id": "product-direct-text",
+  "formula": "PRODUCT(\"3\", 2)",
+  "context": {},
+  "expected": 6
+}

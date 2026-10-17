@@ -1,0 +1,10 @@
+{
+  "id": "sum-row-product",
+  "formula": "SUM(price * qty)",
+  "mode": "aggregate",
+  "rows": [
+    { "qty": 3 },
+    { "price": 9.99, "qty": 3 }
+  ],
+  "expected": 29.97
+}

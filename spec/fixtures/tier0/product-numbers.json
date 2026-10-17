@@ -1,0 +1,6 @@
+{
+  "id": "product-numbers",
+  "formula": "PRODUCT(2, 3, 4)",
+  "context": {},
+  "expected": 24
+}

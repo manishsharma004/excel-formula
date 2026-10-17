@@ -10,7 +10,7 @@ This file tracks the issue body for version control. When the issue is updated o
 
 This is the **canonical design thread** for [excel-formula](https://github.com/manishsharma004/excel-formula): a language-neutral **spec** plus **Python** and **TypeScript** libraries that evaluate Excel-style expressions against an in-memory mapping (dict / object).
 
-**Active spec:** [`spec/SPEC.md`](https://github.com/manishsharma004/excel-formula/blob/main/spec/SPEC.md) revision **0.5.0** on `main`. Implementations under `python/` and `typescript/` are **stubs** until we lock semantics here.
+**Active spec:** [`spec/SPEC.md`](https://github.com/manishsharma004/excel-formula/blob/main/spec/SPEC.md) revision **0.7.0**. Nested paths and `aggregate` are required. Tier 0 includes `PRODUCT`, `SUMSQ`, and `SUMPRODUCT`. `filter`, `map`, and `SUMX` stay proposed. `SUMIF` / `COUNTIF` stay deferred.
 
 **Review and status of every finding:** [`spec/REVIEW.md`](https://github.com/manishsharma004/excel-formula/blob/main/spec/REVIEW.md). **Draft cases, each explained:** [`spec/fixtures/proposed/README.md`](https://github.com/manishsharma004/excel-formula/blob/main/spec/fixtures/proposed/README.md).
 
@@ -62,14 +62,16 @@ Deliberate deviations from Excel are listed in spec §17.4.
 | 0.2.0 | Grammar, coercion, Tier 0 functions, limits, fixtures |
 | 0.3.0 | §17 use cases, corner-case catalog, existing engines |
 | 0.4.0 | **§12.4 proposed:** extensibility for **additional functions** (registry, parameter kinds, packs, security) |
+| 0.7.0 | `PRODUCT`, `SUMSQ`, and `SUMPRODUCT` are Tier 0. `SUMPRODUCT(price, qty)` pairs fields per record. Text in `SUMPRODUCT` is 0; booleans are 1 or 0. `SUMIF` / `COUNTIF` stay deferred |
+| 0.6.0 | Nested paths are required (§6.7). `aggregate("SUM(price * qty)", rows)` evaluates the product once per record (§4.5). A missing `price` is blank, so `[{qty:3},{price:9.99,qty:3}]` is `29.97`, not `59.8`. Both prices at `9.99` would be `59.94`. `filter` / `map` / `SUMX` stay proposed |
 | 0.5.0 | Records requirement recorded; **§12.5 proposed:** records, lists, `filter` / `map`, `SUMX` / `FILTER`. Excel-compat corrections above; clarified tokens, cell bounds, empty arguments, direct vs range arguments; deviation table §17.4 |
 
 ## Proposed — please discuss
 
 ### Records, lists, and query mode (§12.5)
 
-1. **Values** — records and lists in the context; `orders.price` projects a column.
-2. **Aggregations** — `SUM`, `COUNT`, `AVERAGE`, … accept lists and columns with range rules.
+1. **Values** — locked in 0.6.0 (§6.7): records and lists in the context; `orders.price` projects a column. Exact dotted keys still win.
+2. **Aggregations over a row list** — locked in 0.6.0 (§4.5): `aggregate("SUM(price * qty)", rows)` sums the product per record. `SUM(orders.price)` still sums the column once. `SUMX` remains proposed.
 3. **Row-scoped functions** — `SUMX(list, expr)`, `AVERAGEX`, `MINX`, `MAXX`, `COUNTX`, `COUNTAX`, `COUNTROWS`, `FILTER(list, predicate)`.
 4. **One formula, three uses** — `evaluate` (calculation), `filter` (query), `map` (calculated column), plus `compile`.
 5. **Scope** — current record, then outer rows, then the root context.

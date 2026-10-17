@@ -1,6 +1,6 @@
 # Shared fixtures
 
-JSON cases for [SPEC.md](../SPEC.md) revision **0.5.0**. See §15.2 for the file shape.
+JSON cases for [SPEC.md](../SPEC.md) revision **0.7.0**. See §15.2 for the file shape.
 
 | Directory | Cases | Required when |
 |-----------|------:|---------------|

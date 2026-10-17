@@ -1,6 +1,7 @@
 export {
   Evaluator,
   EvaluationError,
+  HostError,
   SPEC_REVISION,
   type EvaluatorOptions,
   type Context,

@@ -1,15 +1,25 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { Evaluator, SPEC_REVISION } from "../src/evaluator.js";
+import { Evaluator, HostError, SPEC_REVISION } from "../src/evaluator.js";
 
-describe("Evaluator stub", () => {
-  it("exposes spec revision", () => {
+describe("Evaluator", () => {
+  it("exposes spec revision 0.7.0", () => {
     assert.equal(Evaluator.specRevision, SPEC_REVISION);
+    assert.equal(SPEC_REVISION, "0.7.0");
   });
 
-  it("evaluate is not implemented yet", () => {
+  it("rejects a leading equals sign", () => {
     const ev = new Evaluator();
-    assert.throws(() => ev.evaluate("=1+1", {}), /not implemented/i);
+    assert.throws(() => ev.evaluate("=1+1", {}), (e: unknown) => {
+      assert.ok(e instanceof HostError);
+      assert.equal(e.kind, "parse");
+      return true;
+    });
+  });
+
+  it("evaluates a name expression", () => {
+    const ev = new Evaluator();
+    assert.equal(ev.evaluate("price * qty", { price: 9.99, qty: 3 }), 29.97);
   });
 });

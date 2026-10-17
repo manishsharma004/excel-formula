@@ -1,0 +1,12 @@
+{
+  "id": "sum-column",
+  "formula": "SUM(orders.price)",
+  "context": {
+    "orders": [
+      { "price": 10 },
+      { "price": 5 },
+      { "price": "n/a" }
+    ]
+  },
+  "expected": 15
+}

@@ -1,0 +1,6 @@
+{
+  "id": "path-into-scalar",
+  "formula": "price.amount",
+  "context": { "price": 5 },
+  "expected": { "$type": "error", "code": "#VALUE!" }
+}

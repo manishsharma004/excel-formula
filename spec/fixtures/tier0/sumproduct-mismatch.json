@@ -1,0 +1,6 @@
+{
+  "id": "sumproduct-mismatch",
+  "formula": "SUMPRODUCT(A1:A2, 2)",
+  "context": { "A1": 1, "A2": 2 },
+  "expected": { "$type": "error", "code": "#VALUE!" }
+}

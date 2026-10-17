@@ -1,0 +1,10 @@
+{
+  "id": "nested-field",
+  "formula": "price * qty * nested.price",
+  "context": {
+    "price": 10,
+    "qty": 3,
+    "nested": { "price": 10, "qty": 3 }
+  },
+  "expected": 300
+}

@@ -1,0 +1,10 @@
+{
+  "id": "sum-column-not-repeated",
+  "formula": "SUM(orders.price)",
+  "mode": "aggregate",
+  "rows": [{}, {}],
+  "context": {
+    "orders": [{ "price": 10 }, { "price": 5 }]
+  },
+  "expected": 15
+}

@@ -1,0 +1,6 @@
+{
+  "id": "sumsq-basic",
+  "formula": "SUMSQ(2, 3)",
+  "context": {},
+  "expected": 13
+}
