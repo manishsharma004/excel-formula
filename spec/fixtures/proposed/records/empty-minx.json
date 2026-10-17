@@ -1,0 +1,9 @@
+{
+  "id": "empty-minx",
+  "mode": "evaluate",
+  "formula": "MINX(none, x)",
+  "context": {
+    "none": []
+  },
+  "expected": 0
+}

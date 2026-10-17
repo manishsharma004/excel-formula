@@ -1,0 +1,9 @@
+{
+  "id": "path-through-blank",
+  "mode": "evaluate",
+  "formula": "customer.address.city",
+  "context": {
+    "customer": null
+  },
+  "expected": null
+}

@@ -1,0 +1,14 @@
+{
+  "id": "record-is-not-a-result",
+  "mode": "evaluate",
+  "formula": "customer",
+  "context": {
+    "customer": {
+      "name": "A"
+    }
+  },
+  "expected": {
+    "$type": "error",
+    "code": "#VALUE!"
+  }
+}

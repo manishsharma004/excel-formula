@@ -1,0 +1,7 @@
+{
+  "id": "count-direct-boolean-and-numeric-text",
+  "mode": "evaluate",
+  "formula": "COUNT(TRUE, \"3\", 1)",
+  "context": {},
+  "expected": 3
+}

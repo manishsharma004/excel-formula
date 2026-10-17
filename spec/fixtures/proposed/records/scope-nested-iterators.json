@@ -1,0 +1,26 @@
+{
+  "id": "scope-nested-iterators",
+  "mode": "evaluate",
+  "formula": "SUMX(orders, SUMX(items, qty * price))",
+  "context": {
+    "orders": [
+      {
+        "items": [
+          {
+            "qty": 2,
+            "price": 3
+          }
+        ]
+      },
+      {
+        "items": [
+          {
+            "qty": 1,
+            "price": 4
+          }
+        ]
+      }
+    ]
+  },
+  "expected": 10
+}

@@ -54,9 +54,44 @@ We need a way to add functions beyond the spec tiers without forking the evaluat
 
 Full text: spec **§12.4** and open questions **§12.4.11**.
 
+## Review findings (2026-10-17, [`spec/REVIEW.md`](./REVIEW.md))
+
+Full write-up and **59 draft fixtures** in [`spec/fixtures/proposed/`](./fixtures/proposed/). Summary for [#4](https://github.com/manishsharma004/excel-formula/issues/4):
+
+### Product requirement: records + query + calculation
+
+- **Aggregations** should accept **lists of records** and **columns** (projected fields), not only cell ranges.
+- A **non-aggregate formula** (e.g. `price * qty`, `region = "EU"`) should work as:
+  - **calculation** — `evaluate(formula, oneRecord)`;
+  - **query** — `filter(formula, rows)`;
+  - **calculated column** — `map(formula, rows)`.
+- Current spec **blocks** this (§4.1 opaque nested objects, §7.1 no list type, §17.4 refuses arrays). REVIEW proposes **Tier R**: `SUMX` / `FILTER` / `COUNTROWS`, scope stack, `filter`/`map`/`compile` API, and `cellReferences` default off for JSON field names like `q1`.
+
+### High-severity Excel-compat bugs in current spec (fix before locking Tier 0)
+
+| Item | Spec / fixture today | Excel |
+|------|----------------------|-------|
+| `"3"=3` | `TRUE` (`equality-numeric-string`) | `FALSE` |
+| `^` associativity | right | **left** (`2^3^2` → 64) |
+| Ordered compare §8.5 | coerces strings to numbers | type order only (`"1">2` → `TRUE`) |
+| `1<2<3` | implied `TRUE` | `FALSE` |
+| `COUNT(TRUE,"3",1)` | 1 | 3 |
+| `0^-1` | `#NUM!` | `#DIV/0!` |
+| `IF(FALSE,1)` | arity error | `FALSE` |
+
+See REVIEW **Part B** for the full list (27 items) and **Part C** for behavior tables.
+
+### Suggested positions on open checkboxes
+
+- Context: **names + records/lists**; cells **opt-in** (`cellReferences`) because `q1` is parsed as cell `Q1`.
+- First release: **Tier 0 + Tier R** (records/query), not only scalar dict rules.
+- §12.4: keep **host `function` error** on throw; **require `lazy`** in the public API for `SUMX`/`FILTER`.
+
 ## Still open (please comment on GitHub #4)
 
-- [ ] Context model: names only, cells only, or hybrid? (Spec currently: **hybrid flat map**, §6.1)
+- [ ] **Records / query / Tier R** — adopt REVIEW Part A in `SPEC.md`? (scope fallback, bracket keys, grouping deferred?)
+- [ ] **Excel-compat corrections** — apply REVIEW Part B (will change tier0 fixtures)?
+- [ ] Context model: names only, cells only, or hybrid? (Spec currently: **hybrid flat map**, §6.1; REVIEW: hybrid + records)
 - [ ] Missing keys: blank (lax) vs `#REF!` (strict) — spec §6.4; keep?
 - [ ] Dates / serial numbers when Tier 2 lands
 - [ ] Locale beyond `en-US`

@@ -1,0 +1,9 @@
+{
+  "id": "empty-sumx",
+  "mode": "evaluate",
+  "formula": "SUMX(none, x)",
+  "context": {
+    "none": []
+  },
+  "expected": 0
+}

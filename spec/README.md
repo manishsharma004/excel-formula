@@ -6,4 +6,6 @@
 - **Versioning:** the spec carries a `Status` and `Revision` at the top; implementations should cite which revision they target.
 - **Changes:** debate in [issue #4](https://github.com/manishsharma004/excel-formula/issues/4), then PRs that update `SPEC.md` and reference that issue.
 
-Shared cases: [`fixtures/`](fixtures/).
+Shared cases: [`fixtures/`](fixtures/) (normative tier fixtures under `tier0/`, etc.).
+
+Design review (records/query model, Excel-compat corrections, proposed cases): [`REVIEW.md`](REVIEW.md) and non-normative fixtures under [`fixtures/proposed/`](fixtures/proposed/).

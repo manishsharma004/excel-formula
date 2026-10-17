@@ -1,0 +1,13 @@
+{
+  "id": "path-nested-record",
+  "mode": "evaluate",
+  "formula": "customer.address.city",
+  "context": {
+    "customer": {
+      "address": {
+        "city": "Pune"
+      }
+    }
+  },
+  "expected": "Pune"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "row-calc-missing-field-blank",
+  "mode": "evaluate",
+  "formula": "price * qty * (1 - discount)",
+  "context": {
+    "id": 2,
+    "region": "US",
+    "price": 5,
+    "qty": 10,
+    "paid": false
+  },
+  "expected": 50
+}

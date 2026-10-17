@@ -1,0 +1,12 @@
+{
+  "id": "path-flat-dotted-key-wins",
+  "mode": "evaluate",
+  "formula": "tax.rate",
+  "context": {
+    "tax.rate": 0.2,
+    "tax": {
+      "rate": 0.1
+    }
+  },
+  "expected": 0.2
+}

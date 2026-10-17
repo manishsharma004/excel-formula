@@ -1,0 +1,7 @@
+{
+  "id": "blank-equals-empty-string",
+  "mode": "evaluate",
+  "formula": "missing=\"\"",
+  "context": {},
+  "expected": true
+}

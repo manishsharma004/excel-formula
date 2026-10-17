@@ -1,0 +1,7 @@
+{
+  "id": "boolean-greater-than-number",
+  "mode": "evaluate",
+  "formula": "TRUE>1",
+  "context": {},
+  "expected": true
+}

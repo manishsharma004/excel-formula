@@ -1,0 +1,15 @@
+{
+  "id": "scope-null-key-does-not-fall-back",
+  "mode": "evaluate",
+  "formula": "SUMX(orders, qty * rate)",
+  "context": {
+    "rate": 2,
+    "orders": [
+      {
+        "qty": 1,
+        "rate": null
+      }
+    ]
+  },
+  "expected": 0
+}

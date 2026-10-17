@@ -1,0 +1,7 @@
+{
+  "id": "inequality-text-number",
+  "mode": "evaluate",
+  "formula": "\"3\"<>3",
+  "context": {},
+  "expected": true
+}

@@ -1,0 +1,7 @@
+{
+  "id": "number-to-text-15-digits",
+  "mode": "evaluate",
+  "formula": "0.1+0.2 & \"\"",
+  "context": {},
+  "expected": "0.3"
+}
