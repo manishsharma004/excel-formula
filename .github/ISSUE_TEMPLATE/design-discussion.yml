@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use the [pinned design thread](https://github.com/manishsharma004/excel-formula/issues) when possible.
+        Use the [design thread (issue #4)](https://github.com/manishsharma004/excel-formula/issues/4) for spec decisions when possible.
         See `spec/SPEC.md` for the current draft specification.
   - type: textarea
     id: proposal
