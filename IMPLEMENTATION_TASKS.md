@@ -1,17 +1,19 @@
 # Implementation task list
 
-Spec: [`spec/SPEC.md`](spec/SPEC.md) **0.5.0**. Design thread: [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).
+Spec: [`spec/SPEC.md`](spec/SPEC.md) **0.8.0**. Design thread: [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).
 
-Both language packages are stubs (`Evaluator.evaluate` throws). Shared fixtures already exist:
+**0.8.0 supersedes the cell tasks below.** There are no cell addresses, no ranges, no `SUMSQ`, no `SUMPRODUCT`, and no `cellReferences` option. `A1` is a name. Lists use element-wise operators. The checklist under that line was written for 0.5.0 and is historical where it disagrees.
+
+Shared fixtures:
 
 | Directory | Count | Required for |
 |-----------|------:|--------------|
-| `spec/fixtures/tier0/` | 31 | Tier 0 conformance |
+| `spec/fixtures/tier0/` | 54 | Tier 0 conformance |
 | `spec/fixtures/tier1/` | 1 | Tier 1 |
-| `spec/fixtures/proposed/records/` | 45 | Proposed §12.5 (records, query, aggregates) |
-| `spec/fixtures/proposed/excel-open/` | 4 | Open questions — do **not** implement these as if they were decided |
+| `spec/fixtures/proposed/records/` | 44 | Proposed §12.5 (records, query, aggregates) |
+| `spec/fixtures/proposed/excel-open/` | 3 | Open questions — do **not** implement these as if they were decided |
 
-Do not implement the four `excel-open` cases. They disagree with the current spec on purpose (15-digit number text and equality, `SUM(A1)` range rules, `#NAME?` for a strict missing name).
+Do not implement the `excel-open` cases. They disagree with the current spec on purpose (15-digit number text and equality, `#NAME?` for a strict missing name). `SUM(A1)` is not open: `A1` is a name.
 
 ## Order
 

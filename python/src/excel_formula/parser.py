@@ -46,15 +46,6 @@ def parse_formula(src: str, max_ast_nodes: int, max_function_args: int) -> dict:
         bump()
         return ast
 
-    def parse_cell(raw: str) -> dict:
-        m = _CELL.match(raw)
-        if not m:
-            host("parse", f"Bad cell '{raw}'")
-        col = 0
-        for ch in m.group(1).upper():
-            col = col * 26 + (ord(ch) - 64)
-        return {"col": col, "row": int(m.group(2))}
-
     def primary() -> dict:
         p = peek()
         if p[0] == "num":
@@ -71,17 +62,6 @@ def parse_formula(src: str, max_ast_nodes: int, max_function_args: int) -> dict:
             if at("p", "("):
                 return call(p[1])
             return node({"k": "name", "v": p[1]})
-        if p[0] == "cell":
-            eat()
-            a = parse_cell(p[1])
-            if at("p", ":"):
-                eat()
-                q = peek()
-                if q[0] != "cell":
-                    host("parse", "Range must end with a cell")
-                eat()
-                return node({"k": "range", "a": a, "b": parse_cell(q[1])})
-            return node({"k": "cell", **a})
         if at("p", "("):
             eat()
             inner = expr()

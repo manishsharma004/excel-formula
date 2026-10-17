@@ -76,7 +76,7 @@ Covered by the `agg-*` cases, `empty-sumx`, `empty-averagex`, `empty-minx`, `emp
 
 Business payloads are nested (`customer.address.city`, `orders.items.qty`). The evaluator must walk records and lists, and must refuse to treat a whole record or list as a number.
 
-Covered by: `path-nested-record`, `path-through-blank`, `path-into-scalar`, `path-flat-dotted-key-wins`, `record-is-not-a-result`, `list-is-not-a-result`, `cell-shaped-field-name`.
+Covered by: `path-nested-record`, `path-through-blank`, `path-into-scalar`, `path-flat-dotted-key-wins`, `record-is-not-a-result`, `list-is-not-a-result`. `q1 * 2` is a Tier 0 name (`name-shaped-like-cell`), not an option.
 
 ### U6 — Same formula language as Excel, on purpose
 
@@ -153,7 +153,7 @@ An empty input list returns an empty result (`empty-filter-api`). Nothing is spe
 
 `SUM(orders.price)` and `SUMX(orders, price)` are defined to be the same number. Text and booleans inside a column are ignored, the same way Excel ignores them inside a range. A **direct** `SUM(TRUE, 1)` would count the boolean; a boolean **in the column** does not.
 
-`SUM(orders)` is `#VALUE!` (`agg-sum-of-records-is-value`). The array is records, not numbers. `orders.price * 2` and `SUM(orders.price * orders.qty)` are also `#VALUE!` (`no-lifting-operator`, `no-lifting-in-sum`). This revision does not do element-wise array math. The row formula belongs inside `SUMX`.
+`SUM(orders)` is `#VALUE!` (`agg-sum-of-records-is-value`). The array is records, not numbers. Spec 0.8.0 does element-wise arithmetic: `orders.price * 2` is `[20, 10, 40, #VALUE!]` because the last price is `"n/a"` (`no-lifting-operator`). `SUM(orders.price * orders.qty)` is `#VALUE!` for that same text product (`no-lifting-in-sum`), not because multiplication of arrays is refused. Numeric arrays use `SUM(orders.price * orders.qty)` in `tier0/sum-array-product`.
 
 ### S5 — No orders yet
 
@@ -215,8 +215,8 @@ The aggregate names `all` explicitly. There is no implicit “current group.”
 | Customer is null | `customer.address.city` | `{customer: null}` | blank | `path-through-blank` |
 | Dot into a number | `price.amount` | `{price: 5}` | `#VALUE!` | `path-into-scalar` |
 | A real key contains a dot | `tax.rate` | both `"tax.rate": 0.2` and `tax.rate` object 0.1 | 0.2 | `path-flat-dotted-key-wins` |
-| Return the customer object | `customer` | a record | `#VALUE!` | `record-is-not-a-result` |
-| Return the orders array | `orders` | the sample list | `#VALUE!` | `list-is-not-a-result` |
+| Return the customer object | `customer` | a record | `{ name: "A" }` | `record-is-not-a-result` |
+| Return the orders array | `orders` | the sample list | the same list | `list-is-not-a-result` |
 
 The exact key `"tax.rate"` wins over navigating `tax` then `rate`, so existing flat fixtures that use dotted names keep working.
 
@@ -224,11 +224,9 @@ The exact key `"tax.rate"` wins over navigating `tax` then `rate`, so existing f
 
 **Story.** JSON from a quarterly report uses the key `q1`.
 
-Formula `q1 * 2`, context `{ "q1": 100 }`, option `cellReferences: false`.
+Formula `q1 * 2`, context `{ "q1": 100 }`.
 
-**Result.** 200 (`cell-shaped-field-name`).
-
-If cell references stay on, `q1` is cell `Q1`, the key is never read, and lax mode treats the missing cell as blank, so the product is 0. That silent zero is why record/query mode should not treat identifiers as cells unless the caller asks.
+**Result.** 200. Spec 0.8.0 requires this with no option. The conformance fixture is `tier0/name-shaped-like-cell`. `A1` is a name as well: `SUM(A1, 1)` with `A1` true is `2` (`tier0/sum-a1-is-name`).
 
 ### S11 — Excel scalar behavior: fixed in 0.5.0, and still open
 
@@ -252,7 +250,7 @@ These cases have an **empty context** unless noted. They do not use records.
 | `count-direct-error-not-counted` | `tier0/` | `COUNT(1, 1/0)` | 1 | `#DIV/0!`, if a direct error always propagates. `COUNT` skips it. |
 | `round-decimal-half` | `tier1/` | `ROUND(2.675, 2)` | 2.68 | 2.67, if you scale the binary64 value by 100 and round. |
 
-0.5.0 also added tier-0 cases for rules it clarified rather than reversed: `equality-boolean-number-unequal` (`TRUE=1` is FALSE), `cell-column-out-of-range` (`ZZZ1` is `#REF!`), `cell-row-zero-out-of-range` (`A0 + 1` is `#REF!`), `empty-argument-is-parse-error` (`IF(TRUE,,1)`), `sum-name-boolean-is-direct` (`SUM(flag, 1)` with `flag` TRUE is 2), and `text-percent-not-coerced` (`"10%"*1` is `#VALUE!`, a deliberate deviation listed in §17.4).
+0.5.0 also added tier-0 cases for rules it clarified rather than reversed: `equality-boolean-number-unequal` (`TRUE=1` is FALSE), `empty-argument-is-parse-error` (`IF(TRUE,,1)`), `sum-name-boolean-is-direct` (`SUM(flag, 1)` with `flag` TRUE is 2), and `text-percent-not-coerced` (`"10%"*1` is `#VALUE!`, a deliberate deviation listed in §17.4). The old `ZZZ1` / `A0` cell-bounds fixtures were removed in 0.8.0: those tokens are names.
 
 **Still open (`excel-open/`).** Excel’s answer is the expectation, but the spec has not adopted it. Each one is a question on issue #4.
 
@@ -260,8 +258,9 @@ These cases have an **empty context** unless noted. They do not use records.
 |------|---------|-------|------------------|---------------|
 | `number-to-text-15-digits` | `0.1+0.2 & ""` | `"0.3"` | `"0.30000000000000004"` (shortest round-trip, §8.2) | Use Excel’s 15-significant-digit General format? |
 | `equality-15-significant-digits` | `0.1+0.2=0.3` | TRUE | FALSE (exact binary64, §8.4) | Compare numbers at 15 significant digits? This decides whether a rule like `total = 0.3` works. |
-| `sum-cell-reference-boolean-ignored` | `SUM(A1, 1)` with `A1` TRUE | 1 | 2 (a single cell is a direct argument, §12) | Should a single cell reference follow range rules, as in Excel? Names would stay direct. |
 | `strict-missing-name-is-name-error` | `missing + 1`, `strict: true` | `#NAME?` | `#REF!` (§6.4) | Switch strict mode to `#NAME?` for names? |
+
+`sum-cell-reference-boolean-ignored` was removed in 0.8.0. `A1` is a name, so `SUM(A1, 1)` with `TRUE` is `2` (`tier0/sum-a1-is-name`). Excel’s one-cell range rule does not apply.
 
 ---
 
@@ -520,8 +519,8 @@ Every JSON file, in the same order as the stories above where possible. “Case�
 - **Mode:** `evaluate`
 - **Formula:** `orders.price * 2`
 - **Inputs:** four sample orders.
-- **Expected:** `#VALUE!`
-- **What it checks:** a column is not a number. Multiplying it does not return a new column.
+- **Expected:** `[20, 10, 40, #VALUE!]`
+- **What it checks:** spec 0.8.0 multiplies the price column by 2. `"n/a" * 2` is `#VALUE!` at that element.
 
 #### `no-lifting-in-sum` — U4, S4
 
@@ -530,7 +529,7 @@ Every JSON file, in the same order as the stories above where possible. “Case�
 - **Formula:** `SUM(orders.price * orders.qty)`
 - **Inputs:** four sample orders.
 - **Expected:** `#VALUE!`
-- **What it checks:** `orders.price * orders.qty` is not element-wise. The working form is `SUMX(orders, price * qty)`.
+- **What it checks:** the products are element-wise, and `"n/a" * 3` makes the sum `#VALUE!`. A numeric pair is `tier0/sum-array-product`.
 
 #### `empty-sumx` — U4, S5
 
@@ -655,8 +654,8 @@ Every JSON file, in the same order as the stories above where possible. “Case�
 - **Mode:** `evaluate`
 - **Formula:** `customer`
 - **Inputs:** `{ customer: { name: "A" } }`.
-- **Expected:** `#VALUE!`
-- **What it checks:** `evaluate` returns a scalar. A record is not a legal result.
+- **Expected:** `{ name: "A" }`
+- **What it checks:** spec 0.8.0 returns a record when the formula’s result is that record.
 
 #### `list-is-not-a-result` — U5, S9
 
@@ -664,17 +663,8 @@ Every JSON file, in the same order as the stories above where possible. “Case�
 - **Mode:** `evaluate`
 - **Formula:** `orders`
 - **Inputs:** four sample orders under `orders`.
-- **Expected:** `#VALUE!`
-- **What it checks:** a list is not a legal top-level result either. Use `COUNTROWS`, `SUM`, `filter`, or `map`.
-
-#### `cell-shaped-field-name` — U5, S10
-
-- **File:** `records/cell-shaped-field-name.json`
-- **Mode:** `evaluate`
-- **Formula:** `q1 * 2`
-- **Inputs:** `{ q1: 100 }`. Option `cellReferences` is false.
-- **Expected:** 200
-- **What it checks:** `q1` is a field. It is not cell `Q1`. With cell references left on, this formula would see a missing cell and return 0.
+- **Expected:** the same list of orders
+- **What it checks:** spec 0.8.0 returns a list when the formula’s result is that list.
 
 ### Excel open questions (`excel-open/`)
 
@@ -696,15 +686,6 @@ These are U6, the “still open” half of scenario S11. Context is empty unless
 - **Spec today:** FALSE (exact binary64 comparison, §8.4).
 - **What it checks:** whether near-equal results compare equal. A business rule such as `total = 0.3` or `balance = 0` after arithmetic depends on this.
 
-#### `sum-cell-reference-boolean-ignored`
-
-- **File:** `excel-open/sum-cell-reference-boolean-ignored.json`
-- **Formula:** `SUM(A1, 1)`
-- **Inputs:** `{ "A1": true }`.
-- **Expected (Excel):** 1
-- **Spec today:** 2. A single cell reference is a **direct** argument, so `TRUE` counts as 1 (§12, “Direct arguments and references”).
-- **What it checks:** Excel treats `A1` like a one-cell range, so the boolean is skipped. The open question is whether cell references should follow range rules while names stay direct. Its tier-0 counterpart, `sum-name-boolean-is-direct`, locks the rule for names.
-
 #### `strict-missing-name-is-name-error`
 
 - **File:** `excel-open/strict-missing-name-is-name-error.json`
@@ -712,7 +693,7 @@ These are U6, the “still open” half of scenario S11. Context is empty unless
 - **Options:** `strict: true`
 - **Expected (Excel):** `#NAME?`
 - **Spec today:** `#REF!` (§6.4, tier-0 fixture `missing-name-strict`).
-- **What it checks:** which error a typo in a name produces. Excel reports an undefined name as `#NAME?`; the spec keeps `#REF!` for both missing names and missing cells.
+- **What it checks:** which error a typo in a name produces. Excel reports an undefined name as `#NAME?`; the spec keeps `#REF!`.
 
 ---
 
@@ -720,9 +701,9 @@ These are U6, the “still open” half of scenario S11. Context is empty unless
 
 | Group | Files | Use cases |
 |-------|------:|-----------|
-| `records/` | 45 | U1–U5, scenarios S1–S10 |
-| `excel-open/` | 4 | U6, scenario S11 (open half) |
-| **Total in this directory** | **49** | |
+| `records/` | 44 | U1–U5, scenarios S1–S10 |
+| `excel-open/` | 3 | U6, scenario S11 (open half) |
+| **Total in this directory** | **47** | |
 
 Promoted by spec 0.5.0: 12 cases to `tier0/` and 1 to `tier1/` (listed in S11).
 

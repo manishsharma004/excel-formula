@@ -1,5 +1,5 @@
 {
-  "id": "cell-shaped-token-without-paren-is-cell",
+  "id": "cell-shaped-token-is-a-name",
   "formula": "LOG10 + 1",
   "context": { "LOG10": 5 },
   "expected": 6

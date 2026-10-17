@@ -1,0 +1,6 @@
+{
+  "id": "sum-array-square",
+  "formula": "SUM(values * values)",
+  "context": { "values": [2, 3] },
+  "expected": 13
+}

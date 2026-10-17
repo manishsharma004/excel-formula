@@ -5,12 +5,10 @@ export type Token =
   | { t: "str"; v: string }
   | { t: "bool"; v: boolean }
   | { t: "name"; v: string }
-  | { t: "cell"; v: string }
   | { t: "op"; v: string }
   | { t: "p"; v: "(" | ")" | "," | ":" }
   | { t: "eof" };
 
-const CELL = /^\$?[A-Za-z]{1,3}\$?[0-9]{1,7}$/;
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 const NUM = /^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?/;
 
@@ -79,14 +77,7 @@ export function lex(src: string): Token[] {
         out.push({ t: "bool", v: folded === "TRUE" });
         continue;
       }
-      const nextIsCall = src[i] === "(";
-      if (CELL.test(raw) && !nextIsCall) {
-        out.push({ t: "cell", v: raw });
-        continue;
-      }
-      if (!IDENT.test(raw) && !(CELL.test(raw) && nextIsCall)) {
-        host("parse", `Invalid name '${raw}'`);
-      }
+      if (!IDENT.test(raw)) host("parse", `Invalid name '${raw}'`);
       out.push({ t: "name", v: raw });
       continue;
     }

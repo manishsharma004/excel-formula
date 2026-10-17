@@ -1,0 +1,6 @@
+{
+  "id": "element-wise-list",
+  "formula": "values * 2",
+  "context": { "values": [10, 5] },
+  "expected": [20, 10]
+}

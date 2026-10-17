@@ -1,0 +1,11 @@
+{
+  "id": "sum-array-product",
+  "formula": "SUM(orders.price * orders.qty)",
+  "context": {
+    "orders": [
+      { "price": 10, "qty": 2 },
+      { "price": 9.99, "qty": 3 }
+    ]
+  },
+  "expected": 49.97
+}

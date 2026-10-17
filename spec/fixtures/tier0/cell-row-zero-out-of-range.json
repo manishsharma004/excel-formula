@@ -1,9 +1,0 @@
-{
-  "id": "cell-row-zero-out-of-range",
-  "formula": "A0 + 1",
-  "context": {},
-  "expected": {
-    "$type": "error",
-    "code": "#REF!"
-  }
-}

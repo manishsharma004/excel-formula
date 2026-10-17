@@ -97,14 +97,6 @@ def interpret(
         if timeout_ms is not None and (time.perf_counter() - started) * 1000 > timeout_ms:
             host("timeout", "Evaluation timed out")
 
-    def lookup_cell(col: int, row: int) -> Scalar:
-        if col < 1 or col > XFD or row < 1 or row > MAX_ROW:
-            return err("#REF!")
-        key = f"{_col_letters(col)}{row}"
-        if key not in ctx:
-            return err("#REF!") if strict else None
-        return ctx[key]
-
     def lookup_exact(name: str):
         for scope in reversed(scopes):
             if name in scope:
@@ -145,17 +137,29 @@ def interpret(
             value = step(value, part)
         return value
 
-    def expand(a: dict, b: dict) -> list[Scalar]:
-        if not (1 <= a["col"] <= XFD and 1 <= b["col"] <= XFD and 1 <= a["row"] <= MAX_ROW and 1 <= b["row"] <= MAX_ROW):
-            return [err("#REF!")]
-        c1, c2 = sorted((a["col"], b["col"]))
-        r1, r2 = sorted((a["row"], b["row"]))
-        if (c2 - c1 + 1) * (r2 - r1 + 1) > max_range_cells:
-            host("limit", "Range is too large")
-        return [lookup_cell(c, r) for r in range(r1, r2 + 1) for c in range(c1, c2 + 1)]
-
     def scalar(v: Any) -> Scalar:
-        return err("#VALUE!") if isinstance(v, RangeValue) else v
+        return v
+
+    def map_list(items: tuple, fn) -> ListValue:
+        if len(items) > max_range_cells:
+            host("limit", "List is too large")
+        return ListValue(items=tuple(fn(item) for item in items))
+
+    def apply_unary(op: str, x: Scalar) -> Scalar:
+        if isinstance(x, ListValue):
+            return map_list(x.items, lambda item: apply_unary(op, item))
+        n = to_number(x)
+        if is_error(n):
+            return n
+        return _finite(-n if op == "-" else n)
+
+    def apply_pct(x: Scalar) -> Scalar:
+        if isinstance(x, ListValue):
+            return map_list(x.items, apply_pct)
+        n = to_number(x)
+        if is_error(n):
+            return n
+        return _finite(n * 0.01)
 
     def eval_any(node: dict) -> Any:
         check()
@@ -164,28 +168,17 @@ def interpret(
             return node["v"]
         if k == "name":
             return lookup_name(node["v"])
-        if k == "cell":
-            return lookup_cell(node["col"], node["row"])
-        if k == "range":
-            return RangeValue(expand(node["a"], node["b"]))
         if k == "unary":
-            n = to_number(scalar(eval_any(node["x"])))
-            if is_error(n):
-                return n
-            return _finite(-n if node["op"] == "-" else n)
+            return apply_unary(node["op"], eval_any(node["x"]))
         if k == "pct":
-            n = to_number(scalar(eval_any(node["x"])))
-            if is_error(n):
-                return n
-            return _finite(n * 0.01)
+            return apply_pct(eval_any(node["x"]))
         if k == "bin":
-            return eval_bin(node["op"], node["l"], node["r"])
+            return pair(node["op"], eval_any(node["l"]), eval_any(node["r"]))
         if k == "call":
             return eval_call(node["name"], node["args"])
         return err("#VALUE!")
 
-    def eval_bin(op: str, l: dict, r: dict) -> Scalar:
-        L, R = scalar(eval_any(l)), scalar(eval_any(r))
+    def apply_scalar(op: str, L: Scalar, R: Scalar) -> Scalar:
         if op == "&":
             a, b = to_text(L), None
             if is_error(a):
@@ -226,9 +219,27 @@ def interpret(
             return _finite(a**b)
         return err("#VALUE!")
 
+    def pair(op: str, L: Scalar, R: Scalar) -> Scalar:
+        if is_error(L):
+            return L
+        if is_error(R):
+            return R
+        ls = L.items if isinstance(L, ListValue) else None
+        rs = R.items if isinstance(R, ListValue) else None
+        if ls is None and rs is None:
+            return apply_scalar(op, L, R)
+        n = len(ls) if ls is not None else len(rs)
+        if ls is not None and rs is not None and len(ls) != len(rs):
+            return err("#VALUE!")
+        if n > max_range_cells:
+            host("limit", "List is too large")
+        out = [pair(op, ls[i] if ls is not None else L, rs[i] if rs is not None else R) for i in range(n)]
+        return ListValue(items=tuple(out))
+
+    def eval_bin(op: str, l: dict, r: dict) -> Scalar:
+        return pair(op, eval_any(l), eval_any(r))
+
     def eval_arg(node: dict) -> dict:
-        if node["k"] == "range":
-            return {"kind": "range", "values": expand(node["a"], node["b"])}
         return {"kind": "scalar", "value": scalar(eval_any(node))}
 
     def arity(args: list, lo: int, hi: int) -> ExcelError | None:
@@ -288,8 +299,6 @@ def interpret(
             values: list[Scalar] = []
             for row in row_table:
                 value = interpret(arg, ctx, strict, max_range_cells, timeout_ms, started, [*scopes, row], None)
-                if isinstance(value, RangeValue):
-                    return err("#VALUE!")
                 values.append(value)
             return {"direct": False, "values": values}
         a = widen(eval_arg(arg))
@@ -339,8 +348,6 @@ def interpret(
                     take(float(v))
         if kind == "sum":
             return _finite(total)
-        if kind == "sumsq":
-            return _finite(squares)
         if kind == "product":
             return 0 if n == 0 else _finite(prod)
         if n == 0:
@@ -348,43 +355,6 @@ def interpret(
         if kind == "average":
             return _finite(total / n)
         return lo if kind == "min" else hi
-
-    def factor(value: Scalar) -> Scalar:
-        if is_error(value) or isinstance(value, NonScalar):
-            return value if is_error(value) else err("#VALUE!")
-        if isinstance(value, bool):
-            return 1 if value else 0
-        if isinstance(value, (int, float)):
-            return float(value)
-        return 0
-
-    def sum_product(args: list) -> Scalar:
-        if not args:
-            return err("#VALUE!")
-        arrays: list[list[float]] = []
-        length = -1
-        for arg in args:
-            col = column_of(arg)
-            if isinstance(col, ExcelError):
-                return col
-            nums: list[float] = []
-            for value in col["values"]:
-                n = factor(value)
-                if is_error(n):
-                    return n
-                nums.append(float(n))
-            if length < 0:
-                length = len(nums)
-            elif len(nums) != length:
-                return err("#VALUE!")
-            arrays.append(nums)
-        total = 0.0
-        for i in range(length):
-            prod = 1.0
-            for arr in arrays:
-                prod *= arr[i]
-            total += prod
-        return _finite(total)
 
     def count(args: list, counta: bool) -> Scalar:
         if not args:
@@ -475,8 +445,6 @@ def interpret(
         "not": lambda a: _not(a),
         "sum": lambda a: agg(a, "sum"),
         "product": lambda a: agg(a, "product"),
-        "sumsq": lambda a: agg(a, "sumsq"),
-        "sumproduct": sum_product,
         "average": lambda a: agg(a, "average"),
         "min": lambda a: agg(a, "min"),
         "max": lambda a: agg(a, "max"),
@@ -580,4 +548,4 @@ def interpret(
         return fn(args)
 
     v = eval_any(ast)
-    return err("#VALUE!") if isinstance(v, RangeValue) else v
+    return v

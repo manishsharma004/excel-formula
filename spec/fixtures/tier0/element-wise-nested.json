@@ -1,0 +1,6 @@
+{
+  "id": "element-wise-nested",
+  "formula": "values * 2",
+  "context": { "values": [[1, 2], [3]] },
+  "expected": [[2, 4], [6]]
+}

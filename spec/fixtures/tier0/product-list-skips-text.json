@@ -1,0 +1,6 @@
+{
+  "id": "product-list-skips-text",
+  "formula": "PRODUCT(values)",
+  "context": { "values": [2, "x", 3] },
+  "expected": 6
+}

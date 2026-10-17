@@ -2,7 +2,7 @@ from excel_formula import Evaluator, EvaluationError, SpecRevision
 
 
 def test_spec_revision_exposed() -> None:
-    assert Evaluator.spec_revision == SpecRevision == "0.7.0"
+    assert Evaluator.spec_revision == SpecRevision == "0.8.0"
 
 
 def test_leading_equals_is_parse_error() -> None:

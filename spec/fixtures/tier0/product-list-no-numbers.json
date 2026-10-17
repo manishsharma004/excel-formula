@@ -1,0 +1,6 @@
+{
+  "id": "product-list-no-numbers",
+  "formula": "PRODUCT(values)",
+  "context": { "values": ["x", true] },
+  "expected": 0
+}

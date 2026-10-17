@@ -1,26 +1,19 @@
-# @excel-formula/core (TypeScript)
+# @excel-formula/core
 
-TypeScript implementation of [`../spec/SPEC.md`](../spec/SPEC.md).
-
-**Status:** stub — API subject to spec revision.
-
-## Install
+TypeScript implementation of [`spec/SPEC.md`](../spec/SPEC.md) revision 0.8.0. Formulas run on objects and arrays. There are no cell ranges. See the [repository README](../README.md).
 
 ```bash
 npm install
-npm run build
 ```
-
-## Usage (planned)
 
 ```ts
 import { Evaluator } from "@excel-formula/core";
 
 const ev = new Evaluator();
-const result = ev.evaluate("=price * qty", { price: 9.99, qty: 3 });
+ev.evaluate("price * qty", { price: 9.99, qty: 3 }); // 29.97
 ```
 
-## Tests
+A leading `=` is a parse error.
 
 ```bash
 npm test

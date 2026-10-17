@@ -1,42 +1,78 @@
 # excel-formula
 
-Language-neutral libraries for **evaluating Excel-style formulas** against an in-memory **context** (typically a `dict` / object mapping names or cell references to values).
+Evaluate Excel-style formulas on objects and arrays. The same expression runs in Python and TypeScript. There is no workbook, no sheet, and no cell range.
 
-This repository is a **multi-module monorepo**: one shared specification, multiple language implementations that should behave consistently.
-
-## Status
-
-**Early design phase.** Behavior is not finalized. See:
-
-- [`spec/SPEC.md`](spec/SPEC.md) — draft language-neutral specification (source of truth for implementations)
-- [`REFERENCE.md`](REFERENCE.md) — formula guide (same text as the playground help page)
-- [**Design discussion (issue #4)**](https://github.com/manishsharma004/excel-formula/issues/4) — canonical thread for spec decisions
-- [`spec/DISCUSSION_ISSUE.md`](spec/DISCUSSION_ISSUE.md) — design thread mirror (keep in sync with [#4](https://github.com/manishsharma004/excel-formula/issues/4); spec **0.7.0**)
-- [`spec/REVIEW.md`](spec/REVIEW.md) — design review: records and query model, Excel-compat findings and their status
-- [`IMPLEMENTATION_TASKS.md`](IMPLEMENTATION_TASKS.md) — task list for the TypeScript package, the Python package, and the playground
-
-## Modules
-
-| Path | Language | Purpose |
-|------|----------|---------|
-| [`python/`](python/) | Python | Evaluate formulas on a `dict` context |
-| [`typescript/`](typescript/) | TypeScript | Evaluate formulas on a `Record` / object context |
-| [`playground/`](playground/) | TypeScript | Browser playground (Vite). Published to GitHub Pages from `main` |
-
-The playground is built and deployed by [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main`. The site is [https://manishsharma004.github.io/excel-formula/](https://manishsharma004.github.io/excel-formula/).
-
-## Repository layout
-
+```text
+evaluate("price * qty", { "price": 9.99, "qty": 3 }) → 29.97
 ```
-spec/           # Language-neutral specification and decision log
-python/         # Python package (excel_formula)
-typescript/     # TypeScript package (@excel-formula/core)
-playground/     # Browser playground, deployed to GitHub Pages
+
+A list is a value. Operators on a list are element-wise, so `SUM(values * values)` is the sum of squares and `SUM(values * 2)` multiplies every element, then adds. `SUMSQ` and `SUMPRODUCT` are not functions. `A1` is a name, and `A1:B2` is a parse error. Do not start a formula with `=`.
+
+Behavior is spec **0.8.0** in [`spec/SPEC.md`](spec/SPEC.md). The formula guide is [`REFERENCE.md`](REFERENCE.md). Open questions are in [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).
+
+## Use it
+
+Python:
+
+```python
+from excel_formula import Evaluator
+
+ev = Evaluator()
+ev.evaluate("price * qty", {"price": 9.99, "qty": 3})  # 29.97
+ev.evaluate("SUM(values * values)", {"values": [2, 3]})  # 13
+ev.aggregate("SUM(price * qty)", [{"qty": 3}, {"price": 9.99, "qty": 3}])  # 29.97
 ```
+
+TypeScript:
+
+```ts
+import { Evaluator } from "@excel-formula/core";
+
+const ev = new Evaluator();
+ev.evaluate("price * qty", { price: 9.99, qty: 3 }); // 29.97
+ev.evaluate("SUM(values * 2)", { values: [10, 5] }); // 30
+```
+
+`aggregate` evaluates `SUM`, `PRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, and `COUNTA` once per record. A missing field is blank, so the call above is `29.97`, not `59.94`. On one object, `SUM(orders.price * orders.qty)` is the same kind of total.
+
+## Packages
+
+| Path | What it is |
+|------|------------|
+| [`python/`](python/) | `excel_formula` |
+| [`typescript/`](typescript/) | `@excel-formula/core` |
+| [`playground/`](playground/) | Browser playground (Vite, Monaco, Pyodide) |
+| [`spec/`](spec/) | Language-neutral spec and shared fixtures |
+
+Install for development:
+
+```bash
+cd python && python3 -m pip install -e .
+cd typescript && npm install
+```
+
+Tests. Python does not need pytest for the shared fixtures:
+
+```bash
+cd typescript && npm test
+cd python && python3 tests/run_fixtures.py
+```
+
+Both runners read `spec/fixtures/tier0/` and `spec/fixtures/tier1/`. Files under `spec/fixtures/proposed/` are drafts and are not conformance tests.
+
+## Playground
+
+```bash
+cd playground && npm install && npm run dev
+```
+
+The dev server listens on port 7500. **Formula guide** in the page is `REFERENCE.md`.
+
+[GitHub Pages](https://manishsharma004.github.io/excel-formula/) is deployed from `main` by [`.github/workflows/main.yml`](.github/workflows/main.yml).
 
 ## Contributing
 
-Propose changes to `spec/SPEC.md` via PR and discuss open questions in [#4](https://github.com/manishsharma004/excel-formula/issues/4) before locking API or semantics.
+Change [`spec/SPEC.md`](spec/SPEC.md) in the same commit as the engines and fixtures. Discuss a decision that is still open in [issue #4](https://github.com/manishsharma004/excel-formula/issues/4) before treating it as required. The local mirror of that thread is [`spec/DISCUSSION_ISSUE.md`](spec/DISCUSSION_ISSUE.md).
 
 ## License
 

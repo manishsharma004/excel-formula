@@ -39,7 +39,7 @@ const app = document.querySelector("#app")!;
 app.innerHTML = `
 <header>
   <h1>Excel formula playground</h1>
-  <span>spec 0.7.0 · frontend only</span>
+  <span>spec 0.8.0 · frontend only</span>
   <button class="link" id="help" type="button">Formula guide</button>
 </header>
 <article id="guide" class="guide" hidden>
@@ -163,7 +163,7 @@ function updateHint() {
   (document.querySelector("#row-mode-label") as HTMLElement).style.display = rows ? "" : "none";
   if (!rows && agg) hint.textContent = "This formula calls an aggregate. Switch data to an array of records.";
   else if (rows && (rowModeEl.value === "map" || rowModeEl.value === "filter"))
-    hint.textContent = "Calculate returns one value per record. Query keeps records where the formula is TRUE. Aggregate runs SUM, PRODUCT, SUMSQ, SUMPRODUCT, AVERAGE, MIN, MAX, COUNT, and COUNTA once per record.";
+    hint.textContent = "Calculate returns one value per record. Query keeps records where the formula is TRUE. Aggregate runs SUM, PRODUCT, AVERAGE, MIN, MAX, COUNT, and COUNTA once per record. SUM(values * values) is the sum of squares.";
   else hint.textContent = engine === "python" ? "Python runs in Pyodide on first Run." : "JavaScript and TypeScript share one engine.";
 }
 

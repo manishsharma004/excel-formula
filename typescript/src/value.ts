@@ -82,6 +82,12 @@ export function decodeJson(input: unknown): Scalar {
 
 export function encodeJson(value: Scalar): unknown {
   if (value instanceof ExcelError) return { $type: "error", code: value.code };
+  if (value instanceof ListValue) return value.items.map((item) => encodeJson(item));
+  if (value instanceof RecordValue) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of value.fields) out[k] = encodeJson(v);
+    return out;
+  }
   if (value instanceof NonScalar) return { $type: "error", code: "#VALUE!" };
   return value;
 }

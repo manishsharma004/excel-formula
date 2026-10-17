@@ -1,0 +1,6 @@
+{
+  "id": "sum-a1-is-name",
+  "formula": "SUM(A1, 1)",
+  "context": { "A1": true },
+  "expected": 2
+}

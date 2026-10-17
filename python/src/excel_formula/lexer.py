@@ -69,11 +69,7 @@ def lex(src: str) -> list[tuple]:
             if folded in ("TRUE", "FALSE"):
                 out.append(("bool", folded == "TRUE"))
                 continue
-            next_is_call = i < n and src[i] == "("
-            if CELL.match(raw) and not next_is_call:
-                out.append(("cell", raw))
-                continue
-            if not IDENT.match(raw) and not (CELL.match(raw) and next_is_call):
+            if not IDENT.match(raw):
                 host("parse", f"Invalid name '{raw}'")
             out.append(("name", raw))
             continue

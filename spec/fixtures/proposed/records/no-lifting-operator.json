@@ -36,8 +36,5 @@
       }
     ]
   },
-  "expected": {
-    "$type": "error",
-    "code": "#VALUE!"
-  }
+  "expected": [20, 10, 40, { "$type": "error", "code": "#VALUE!" }]
 }

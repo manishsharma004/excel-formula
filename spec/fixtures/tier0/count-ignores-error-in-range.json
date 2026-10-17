@@ -1,9 +1,0 @@
-{
-  "id": "count-ignores-error-in-range",
-  "formula": "COUNT(A1:A2)",
-  "context": {
-    "A1": 1,
-    "A2": { "$type": "error", "code": "#DIV/0!" }
-  },
-  "expected": 1
-}

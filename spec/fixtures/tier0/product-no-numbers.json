@@ -1,6 +1,0 @@
-{
-  "id": "product-no-numbers",
-  "formula": "PRODUCT(A1:A2)",
-  "context": { "A1": "x", "A2": true },
-  "expected": 0
-}

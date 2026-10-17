@@ -1,6 +1,0 @@
-{
-  "id": "product-range-skips-text",
-  "formula": "PRODUCT(A1:A3)",
-  "context": { "A1": 2, "A2": "x", "A3": 3 },
-  "expected": 6
-}

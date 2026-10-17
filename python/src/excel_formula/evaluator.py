@@ -1,4 +1,4 @@
-"""Public evaluator. Behavior is defined in spec/SPEC.md revision 0.7.0."""
+"""Public evaluator. Behavior is defined in spec/SPEC.md revision 0.8.0."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from excel_formula.interpret import interpret
 from excel_formula.parser import parse_formula
 from excel_formula.value import ExcelError, decode_json, encode_json, is_error
 
-SpecRevision = "0.7.0"
+SpecRevision = "0.8.0"
 
 
 def _utf16_len(s: str) -> int:
@@ -24,7 +24,6 @@ class Evaluator:
     def __init__(
         self,
         *,
-        reference_style: str = "A1",
         formula_locale: str = "en-US",
         strict: bool = False,
         max_formula_length: int = 8192,
@@ -34,11 +33,8 @@ class Evaluator:
         timeout_ms: int | None = None,
         on_row_error: str = "raise",
     ) -> None:
-        if reference_style != "A1":
-            host("unsupported", "Only A1 references are supported")
         if formula_locale != "en-US":
             host("unsupported", "Only en-US is supported")
-        self.reference_style = reference_style
         self.formula_locale = formula_locale
         self.strict = strict
         self.max_formula_length = max_formula_length

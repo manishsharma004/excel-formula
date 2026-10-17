@@ -6,8 +6,6 @@ export type Ast =
   | { k: "str"; v: string }
   | { k: "bool"; v: boolean }
   | { k: "name"; v: string }
-  | { k: "cell"; col: number; row: number }
-  | { k: "range"; a: { col: number; row: number }; b: { col: number; row: number } }
   | { k: "unary"; op: "+" | "-"; x: Ast }
   | { k: "pct"; x: Ast }
   | { k: "bin"; op: string; l: Ast; r: Ast }
@@ -42,14 +40,6 @@ export function parseFormula(src: string, maxAstNodes: number, maxFunctionArgs: 
     return ast;
   };
 
-  function parseCellToken(raw: string): { col: number; row: number } {
-    const m = /^\$?([A-Za-z]{1,3})\$?([0-9]{1,7})$/.exec(raw);
-    if (!m) host("parse", `Bad cell '${raw}'`);
-    let col = 0;
-    for (const ch of m[1]!.toUpperCase()) col = col * 26 + (ch.charCodeAt(0) - 64);
-    return { col, row: Number(m[2]) };
-  }
-
   function primary(): Ast {
     const p = peek();
     if (p.t === "num") {
@@ -68,18 +58,6 @@ export function parseFormula(src: string, maxAstNodes: number, maxFunctionArgs: 
       eat();
       if (at("p", "(")) return call(p.v);
       return node({ k: "name", v: p.v });
-    }
-    if (p.t === "cell") {
-      eat();
-      const a = parseCellToken(p.v);
-      if (at("p", ":")) {
-        eat();
-        const q = peek();
-        if (q.t !== "cell") host("parse", "Range must end with a cell");
-        eat();
-        return node({ k: "range", a, b: parseCellToken(q.v) });
-      }
-      return node({ k: "cell", col: a.col, row: a.row });
     }
     if (at("p", "(")) {
       eat();

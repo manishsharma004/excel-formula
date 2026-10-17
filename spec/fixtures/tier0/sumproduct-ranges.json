@@ -1,6 +1,0 @@
-{
-  "id": "sumproduct-ranges",
-  "formula": "SUMPRODUCT(A1:A3, B1:B3)",
-  "context": { "A1": 1, "A2": "x", "A3": true, "B1": 4, "B2": 5, "B3": 6 },
-  "expected": 10
-}

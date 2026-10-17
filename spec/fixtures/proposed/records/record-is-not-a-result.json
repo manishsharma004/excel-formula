@@ -7,8 +7,5 @@
       "name": "A"
     }
   },
-  "expected": {
-    "$type": "error",
-    "code": "#VALUE!"
-  }
+  "expected": { "name": "A" }
 }

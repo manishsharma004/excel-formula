@@ -1,0 +1,6 @@
+{
+  "id": "record-result",
+  "formula": "customer",
+  "context": { "customer": { "name": "A" } },
+  "expected": { "name": "A" }
+}

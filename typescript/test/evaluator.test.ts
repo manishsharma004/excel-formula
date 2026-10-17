@@ -4,9 +4,9 @@ import { describe, it } from "node:test";
 import { Evaluator, HostError, SPEC_REVISION } from "../src/evaluator.js";
 
 describe("Evaluator", () => {
-  it("exposes spec revision 0.7.0", () => {
+  it("exposes spec revision 0.8.0", () => {
     assert.equal(Evaluator.specRevision, SPEC_REVISION);
-    assert.equal(SPEC_REVISION, "0.7.0");
+    assert.equal(SPEC_REVISION, "0.8.0");
   });
 
   it("rejects a leading equals sign", () => {

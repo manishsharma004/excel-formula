@@ -1,26 +1,20 @@
-# excel-formula (Python)
+# excel_formula
 
-Python implementation of [`../spec/SPEC.md`](../spec/SPEC.md).
-
-**Status:** stub — API subject to spec revision.
-
-## Install (development)
+Python implementation of [`spec/SPEC.md`](../spec/SPEC.md) revision 0.8.0. Formulas run on dicts and lists. There are no cell ranges. See the [repository README](../README.md).
 
 ```bash
-python -m pip install -e ".[dev]"
+python3 -m pip install -e .
 ```
-
-## Usage (planned)
 
 ```python
 from excel_formula import Evaluator
 
 ev = Evaluator()
-result = ev.evaluate("=price * qty", {"price": 9.99, "qty": 3})
+ev.evaluate("price * qty", {"price": 9.99, "qty": 3})  # 29.97
 ```
 
-## Tests
+A leading `=` is a parse error.
 
 ```bash
-python -m pytest
+python3 tests/run_fixtures.py
 ```

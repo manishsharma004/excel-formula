@@ -1,0 +1,6 @@
+{
+  "id": "sum-element-wise-text",
+  "formula": "SUM(labels * 2)",
+  "context": { "labels": ["n/a", 3] },
+  "expected": { "$type": "error", "code": "#VALUE!" }
+}

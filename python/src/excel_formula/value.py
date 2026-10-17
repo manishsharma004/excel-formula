@@ -67,6 +67,10 @@ def decode_json(value: Any) -> Scalar:
 def encode_json(value: Scalar) -> Any:
     if isinstance(value, ExcelError):
         return {"$type": "error", "code": value.code}
+    if isinstance(value, ListValue):
+        return [encode_json(item) for item in value.items]
+    if isinstance(value, RecordValue):
+        return {k: encode_json(v) for k, v in value.fields.items()}
     if isinstance(value, NonScalar):
         return {"$type": "error", "code": "#VALUE!"}
     if isinstance(value, float) and value.is_integer() and abs(value) <= 2**53:

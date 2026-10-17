@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|--------|
 | **Status** | Draft — normative proposal for discussion in [issue #4](https://github.com/manishsharma004/excel-formula/issues/4) |
-| **Revision** | 0.7.0 |
+| **Revision** | 0.8.0 |
 | **Last updated** | 2026-10-17 |
 | **Compatibility target** | Microsoft Excel, **en-US**, for the subset defined here. Quirks we intentionally match are called out. Deliberate deviations are listed in §17.4. Anything not specified is out of scope, not “whatever Excel does.” |
 
-This document is the language-neutral contract for the Python and TypeScript packages (and any later implementation). Implementations MUST cite `specRevision` **0.7.0** when they claim conformance. Behavior marked **Open** or **Proposed** is not yet required.
+This document is the language-neutral contract for the Python and TypeScript packages (and any later implementation). Implementations MUST cite `specRevision` **0.8.0** when they claim conformance. Behavior marked **Open** or **Proposed** is not yet required.
 
 ## 1. Purpose
 
@@ -30,7 +30,7 @@ Non-goals for this revision:
 - Reading or writing `.xlsx` / `.xls`.
 - Recalculating a dependency graph (`evaluate` does not treat context values as formulas).
 - Locales other than `en-US` (function names, `.` decimal, `,` argument separator).
-- `R1C1`, structured table references, dynamic arrays (array **results** and element-wise array arithmetic), `LAMBDA`, `LET`, iterative calculation. Lists of records are inputs for dotted paths (§6.7) and for `aggregate` (§4.5). `filter`, `map`, and `SUMX` stay proposed in §12.5.
+- Sheet addresses (`A1`, `A1:B2`, `R1C1`), structured table references, `LAMBDA`, `LET`, and iterative calculation. Lists are values (§6.5). Element-wise arithmetic on lists is required. `filter`, `map`, and `SUMX` stay proposed in §12.5.
 - Display formatting (currency, dates-as-text). The evaluator returns data, not formatted text.
 
 ## 2. How to read this spec
@@ -51,7 +51,7 @@ Decisions are discussed in [issue #4](https://github.com/manishsharma004/excel-f
 | Formula text | Expression only. A leading `=` is **not** part of the API (spreadsheet UI convention). `=price*qty` is a **parse error**, not a stripped prefix. |
 | Evaluation mode | **Single-shot.** Context values are data. A string `"price*qty"` in the context is a string, not a nested formula. |
 | Locale | `en-US` only. |
-| Records requirement | `aggregate` evaluates `SUM`, `PRODUCT`, `SUMSQ`, `SUMPRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, and `COUNTA` once per record (§4.5). A formula with no aggregation is a calculation on one record and a query predicate over many. Nested records and lists are read by dotted paths (§6.7). `filter`, `map`, and `SUMX` remain **Proposed** (§12.5). |
+| Records and arrays | The context is objects and arrays. There are no cell addresses and no ranges (§6.3). Operators on a list are element-wise (§6.5), so `SUM(values * values)` and `SUM(values * 2)` replace `SUMSQ` and `SUMPRODUCT`. `aggregate` still evaluates `SUM`, `PRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, and `COUNTA` once per record (§4.5). `filter`, `map`, and `SUMX` remain **Proposed** (§12.5). |
 
 ## 3. Terminology
 
@@ -59,12 +59,12 @@ Decisions are discussed in [issue #4](https://github.com/manishsharma004/excel-f
 |------|---------|
 | **Formula** | The expression string passed to `evaluate` |
 | **Context** | Mapping from string keys to values (§6) |
-| **Name** | An identifier that is not a cell address, e.g. `price`, `tax_rate` |
-| **Cell reference** | An `A1`-style address, e.g. `A1`, `$B$2` |
+| **Name** | An identifier, e.g. `price`, `tax_rate`, `q1`, `A1`. There is no cell-address token |
 | **Blank** | The empty value (JSON `null`). Distinct from `0`, `""`, and `FALSE` |
 | **Error value** | A spreadsheet error such as `#DIV/0!` (§9). It is a **return value**, not a thrown exception, unless the failure is a host limit or a parse error |
 | **Host error** | Parse failure or a limit exceeded. Raised/thrown; not an Excel error value |
-| **Direct argument** | A function argument that is not a range: a literal, an operator expression, a function result, a name, or a single cell reference (see §12, “Direct arguments and references”) |
+| **Direct argument** | A function argument whose value is one scalar: a literal, an operator expression, a function result, or a name (§12.1) |
+| **List argument** | A function argument whose value is an array. Membership follows the **in a list** rules of §12.1 |
 | **Record**, **List**, **Column** | Nested objects and arrays in the context (§6.7). A column is the list produced by walking a path through a list |
 | **Row formula** | A formula that calls no aggregation function. Proposed to be usable as a calculation and as a query (§12.5) |
 
@@ -78,7 +78,7 @@ Each language exposes an evaluator constructed with options.
 |-------|------|
 | `formula` | String. MUST be an expression (§5). MUST NOT require or strip a leading `=`. |
 | `context` | String-keyed mapping. Lookup rules in §6. A value may itself be a record or a list; dotted names walk into it (§6.7). Using a record or list where a scalar is required is `#VALUE!`. |
-| Result | A value (§7), including an error value (§9). |
+| Result | A value (§7), including an error value (§9), a list, or a record. |
 
 Host errors (§10) abort evaluation and are not returned as `#VALUE!`.
 
@@ -89,13 +89,13 @@ Host errors (§10) abort evaluation and are not returned as `#VALUE!`.
 | `strict` | boolean | `false` | See §6.4 (missing keys) |
 | `maxFormulaLength` | integer | `8192` | Measured in UTF-16 code units in every language, the same unit as `LEN` (§12.2) |
 | `maxAstNodes` | integer | `4096` | Nodes after parse |
-| `maxFunctionArgs` | integer | `255` | Arguments written in one call. A range counts as **one** argument, however many cells it covers |
-| `maxRangeCells` | integer | `10000` | Cells materialized from one range |
+| `maxFunctionArgs` | integer | `255` | Arguments written in one call. One list counts as **one** argument, however many elements it has |
+| `maxRangeCells` | integer | `10000` | Maximum elements in one list an operator or aggregate materializes. The name is historical; there are no cell ranges |
 | `timeoutMs` | integer or absent | absent | If set, evaluation MUST fail with a host **timeout** error when exceeded. Implementations MAY poll between function calls; they are not required to preempt a single builtin |
 
 Function registry options (`functions`, `builtins`, `clock`) are proposed in §12.4.
 
-`referenceStyle` other than `"A1"` and `formulaLocale` other than `"en-US"` are **Deferred**. Passing them MUST be a host error (unsupported option), not silent ignore.
+`formulaLocale` other than `"en-US"` is **Deferred**. Passing it MUST be a host error (unsupported option), not silent ignore. There is no `referenceStyle`: this revision has no cell references.
 
 ### 4.3 What this revision does not provide
 
@@ -120,13 +120,13 @@ Python and TypeScript names MAY differ in style (`max_formula_length` vs `maxFor
 
 `rows` is a list of records. `context` is the root scope and defaults to empty.
 
-`SUM`, `PRODUCT`, `SUMSQ`, `SUMPRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, and `COUNTA` evaluate each argument once per record, with that record as the innermost scope (§6.2, §6.7). `SUM`, `PRODUCT`, `SUMSQ`, `AVERAGE`, `MIN`, and `MAX` then apply the **in a range** rules of §12.1. `SUMPRODUCT` pairs the per-record arrays (§12.1). A missing field is blank, so on the records below the first product is `0`.
+`SUM`, `PRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, and `COUNTA` evaluate each argument once per record, with that record as the innermost scope (§6.2, §6.7), then apply the **in a list** rules of §12.1. A missing field is blank, so on the records below the first product is `0`.
 
 ```text
 aggregate("SUM(price * qty)", [{"qty": 3}, {"price": 9.99, "qty": 3}]) → 29.97
 ```
 
-The same call with `price` `9.99` on both records is `59.94` (`9.99 * 6`). It is not `59.8`. `aggregate("SUMPRODUCT(price, qty)", rows)` is the same number: blank becomes `0` inside `SUMPRODUCT`, then the pairs are multiplied.
+The same call with `price` `9.99` on both records is `59.94` (`9.99 * 6`). It is not `59.8`. On one object, `SUM(orders.price * orders.qty)` is the element-wise form of that total.
 
 An argument that is already a list or a column is aggregated once, not once per record. `aggregate("SUM(orders.price)", [{}, {}], {"orders": [{"price": 10}, {"price": 5}]})` is `15`.
 
@@ -134,7 +134,7 @@ A formula that calls no aggregation is evaluated once against `context` only. Na
 
 ## 5. Lexical grammar and syntax
 
-Whitespace (U+0009, U+000A, U+000D, U+0020) MAY appear between tokens and MUST NOT appear inside numbers, cell references, or identifiers. It MUST NOT be required inside strings.
+Whitespace (U+0009, U+000A, U+000D, U+0020) MAY appear between tokens and MUST NOT appear inside numbers or identifiers. It MUST NOT be required inside strings.
 
 ### 5.1 Tokens
 
@@ -143,13 +143,12 @@ Whitespace (U+0009, U+000A, U+000D, U+0020) MAY appear between tokens and MUST N
 | Number | Regex `^([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?$`. Examples: `0`, `3.14`, `.5`, `1.`, `1e10`, `1E-3`. A lone `.` is not a number. Leading `+` is not a number token (it is unary plus). Underscores and thousands separators are **not** accepted (`SUM(1,000)` is `SUM(1, 0)`: comma is the argument separator). |
 | String | `"…"` with `""` encoding one double-quote. No other escapes. Raw newlines inside strings are allowed (Excel allows them). |
 | Boolean | `TRUE` / `FALSE`, case-insensitive |
-| Identifier | Dot-separated segments: regex `^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`, applied **after** the cell-reference rule below. `a..b`, `a.`, and `a.1` are not identifiers. |
-| Cell reference | Regex `^\$?[A-Za-z]{1,3}\$?[0-9]{1,7}$`. If the token matches this pattern, it is a **cell reference**, never a name, **unless it is immediately followed by `(`**, in which case it is a function name. `A1` is always a cell; `LOG10(100)` is a call even though `LOG10` is also a valid cell address. A token that matches the pattern but is out of bounds (column after `XFD`, row `0` or after `1048576`) is still a cell reference and evaluates to `#REF!` (§6.3). |
-| Range | `cell:cell` with optional whitespace around `:`. Both ends MUST be cell references. |
+| Identifier | Dot-separated segments: regex `^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`. `a..b`, `a.`, and `a.1` are not identifiers. |
+| Name | There is no cell-reference token. `A1` and `LOG10` are names. `:` is not an operator, so `A1:B2` is a parse error. |
 | Operators | `+` `-` `*` `/` `^` `&` `=` `<>` `<` `>` `<=` `>=` `%` |
 | Punctuation | `(` `)` `,` |
 
-Function names use the identifier rule, or the cell pattern when followed by `(`, and are matched **case-insensitively** against the function registry (§12.4). No whitespace is allowed between a function name and its `(`. Unknown calls are `#NAME?` (§9), not host parse errors.
+Function names use the identifier rule and are matched **case-insensitively** against the function registry (§12.4). `LOG10(100)` is a call because of `(`. Bare `LOG10` is the name. No whitespace is allowed between a function name and its `(`. Unknown calls are `#NAME?` (§9), not host parse errors.
 
 ### 5.2 Expression grammar
 
@@ -157,14 +156,13 @@ All binary operators are **left-associative**, including `^`: `2^3^2` is `(2^3)^
 
 | Precedence | Forms |
 |------------|--------|
-| 1 | Range `:`, already a token pair `ref:ref` (intersection and union are **Deferred**) |
-| 2 | Unary `+` and unary `-` |
-| 3 | Postfix `%` |
-| 4 | `^` |
-| 5 | `*` `/` |
-| 6 | `+` `-` |
-| 7 | `&` |
-| 8 | `=` `<>` `<` `>` `<=` `>=` |
+| 1 | Unary `+` and unary `-` |
+| 2 | Postfix `%` |
+| 3 | `^` |
+| 4 | `*` `/` |
+| 5 | `+` `-` |
+| 6 | `&` |
+| 7 | `=` `<>` `<` `>` `<=` `>=` |
 
 ```text
 expr        := comparison
@@ -175,17 +173,16 @@ multiplicative := power ( ( "*" | "/" ) power )*
 power       := percent ( "^" percent )*
 percent     := unary "%"*
 unary       := ( "+" | "-" ) unary | primary
-primary     := number | string | boolean | ref | function_call | "(" expr ")"
-ref         := cell | cell ":" cell | name
+primary     := number | string | boolean | name | function_call | "(" expr ")"
 function_call := ident "(" [ expr ( "," expr )* ] ")"
-name        := identifier that is not a cell reference
+name        := identifier
 ```
 
 An argument slot MUST NOT be empty. `IF(a,,b)` and `ROUND(x,)` are host parse errors in this revision (Excel accepts them; **Deferred**). Fewer arguments, as in `LEFT(text)`, are allowed where a function says so.
 
 Comparisons chain as in Excel: `1<2<3` is `(1<2)<3` → `TRUE<3`. Ordered comparison does not convert booleans to numbers, and a boolean sorts after every number (§8.5), so the result is `FALSE`.
 
-Excel’s intersection operator (a space between two ranges) and union operator (a comma that is not a function-argument separator) are **Deferred**. Whitespace is never an operator. `A1:A2 A2:A3` is a host parse error.
+`:` is not an operator. `A1:A2` is a host parse error. Whitespace is never an operator.
 
 ### 5.3 Percent and exponent
 
@@ -211,46 +208,37 @@ The first non-whitespace character MUST NOT be `=`. The string `=1+1` is a **par
 
 ### 6.1 Mapping
 
-The context is one string → value map. Values may be scalars or nested records and lists (§6.7). This revision is a **hybrid** of names and cell addresses:
+The context is one string → value map. Values may be scalars or nested records and lists (§6.7). Keys are names, including keys that look like cells:
 
 ```json
-{ "price": 9.99, "qty": 3, "A1": 10, "B1": 20 }
+{ "price": 9.99, "qty": 3, "q1": 100 }
 ```
 
-Both `price * qty` and `A1 + B1` are valid. There is no separate sheet object.
+`price * qty` and `q1 * 2` are both names. There is no sheet.
 
 ### 6.2 Name lookup
 
 - Names are **case-sensitive**. `price` and `Price` are different keys.
 - The identifier in the formula is used as the key with its exact spelling.
 - `.` is allowed (`tax.rate`, `nested.price`). An exact key, including the dots, always wins. If that key does not exist, the name is a path (§6.7).
-- A key that is not an identifier (contains a space or `-`, starts with a digit) cannot be written in this revision. A key that is shaped like a cell (`q1`, `vat20`) is read as a **cell**, not a name (§5.1). §12.5 proposes an option to turn cell references off for record data.
+- A key that is not an identifier (contains a space or `-`, starts with a digit) cannot be written in this revision. A key shaped like a cell (`q1`, `vat20`, `A1`) is still a **name**.
 
-### 6.3 Cell lookup
+### 6.3 No spreadsheet ranges
 
-- Column letters are case-insensitive. Row digits are exact.
-- `$` is ignored for lookup. `$A$1`, `A$1`, `$A1`, and `a1` all resolve the key **`A1`** (column uppercased, `$` removed).
-- Implementations MUST look up that canonical key only. A context that stores `"a1"` and not `"A1"` does **not** match (keys in context MUST already be canonical if they are cells). Callers normalize keys.
-
-Column `A` → 1 … `Z` → 26, `AA` → 27, up to `XFD` → 16384. Row MUST be in `1…1048576`. A cell outside those bounds (for example `ZZZ1` or `A0`) evaluates to `#REF!`, in both lax and strict mode. A range with an out-of-bounds corner is `#REF!`.
+This library evaluates formulas on objects and arrays. It has no sheet, no `A1` address, and no `A1:B2` range. A token is a name or a function call. `SUM(values)` reads the array stored at `values`. `SUM(orders.price * orders.qty)` multiplies those two arrays element by element, then sums. `SUM(orders.price * 2)` multiplies every element by `2`. `SUM(orders.price * orders.price)` is the sum of squares. `SUMSQ` and `SUMPRODUCT` are not functions.
 
 ### 6.4 Missing keys
 
-| `strict` | Missing name or cell |
+| `strict` | Missing name |
 |----------|----------------------|
 | `false` (default) | **Blank** |
 | `true` | Error value `#REF!` |
 
 Blank then follows coercion (§8). So with `strict: false`, `missing + 1` is `1`. With `strict: true`, it is `#REF!`.
 
-### 6.5 Ranges
+### 6.5 Lists
 
-`A1:B2` is the inclusive rectangle. Expansion order is **row-major, left to right**: `A1`, `B1`, `A2`, `B2`.
-
-- Reversed corners are normalized (`B2:A1` is the same rectangle as `A1:B2`).
-- If the cell count exceeds `maxRangeCells`, host error **limit**.
-- Each cell is resolved with §6.3–§6.4. A range is not a scalar. It is only legal as a **function argument**. Using a range as an operator operand (`A1:A2 + 1`) is `#VALUE!`.
-- 3D ranges (`Sheet1:Sheet2!A1`) and sheet-qualified refs (`Sheet2!A1`) are **Deferred** and MUST be parse errors in this revision (the `!` character is not a token).
+An array in the context is a list. Operators are element-wise when either operand is a list. A list and a scalar pair each element with that scalar. Two lists pair by index and MUST have the same length, or the result is `#VALUE!`. If a paired element is itself a list, the same rule applies to that element. A list longer than `maxRangeCells` is a host error **limit**. The result of an element-wise operation is a list. `SUM`, `PRODUCT`, and the other aggregates then read that list with the **in a list** rules of §12.1 (the same membership Excel uses inside a range). A list of records passed to `SUM` is `#VALUE!`. Text in an element-wise product is not skipped: `"n/a" * 4` is `#VALUE!`, and `SUM` of a list that contains that error returns the error.
 
 ### 6.6 Context values that look like formulas
 
@@ -272,9 +260,9 @@ A dotted name is resolved as follows:
 
 `price * qty * nested.price` with `nested` equal to `{"price": 10}` reads `nested`’s `price`. `tax.rate` is `0.2` when the context has both `"tax.rate": 0.2` and `"tax": {"rate": 0.1}`.
 
-A record, list, or column used as an operator operand, as a scalar parameter, or as the result of `evaluate` is `#VALUE!`. There is no element-wise arithmetic: `orders.price * 2` is `#VALUE!`.
+A record used as a scalar operand is `#VALUE!`. A list used with `+`, `-`, `*`, `/`, `^`, `%`, or `&` is element-wise (§6.5). `orders.price * 2` is a list. `SUM(orders.price * orders.price)` is the sum of squares.
 
-`SUM`, `PRODUCT`, `SUMSQ`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTA`, `AND`, `OR`, and `CONCAT` accept a column or a list of scalars with the **in a range** rules of §12.1. Text and booleans are skipped by `SUM` and `PRODUCT`. `SUMPRODUCT` accepts columns too, but text is `0` and booleans are `1` or `0` (§12.1). A list of records, such as `SUM(orders)` or `SUMPRODUCT(orders)`, is `#VALUE!`.
+`SUM`, `PRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTA`, `AND`, `OR`, and `CONCAT` accept a list of scalars with the **in a list** rules of §12.1. Text and booleans are skipped by `SUM` and `PRODUCT`. A list of records, such as `SUM(orders)`, is `#VALUE!`.
 
 ## 7. Value model
 
@@ -288,7 +276,7 @@ A record, list, or column used as an operator operand, as a scalar parameter, or
 | Blank | Empty. Exactly one blank value. |
 | Error | One of the codes in §9. Carries no extra payload in this revision. |
 
-No date, array, or range type is returned to the caller. Ranges exist only as intermediate argument lists inside builtins. Records and lists exist as inputs (§6.7). They are never a result of `evaluate`: a formula whose value is a record or a list returns `#VALUE!`.
+No date type is returned. A list produced by an element-wise operator is a result: `evaluate("values * 2", {"values": [10, 5]})` is `[20, 10]`. A record used where a scalar is required is `#VALUE!`. A formula whose whole result is a record returns that record.
 
 ### 7.2 JSON encoding (fixtures and host interop)
 
@@ -299,8 +287,10 @@ No date, array, or range type is returned to the caller. Ranges exist only as in
 | Boolean | `true` / `false` |
 | Blank | `null` |
 | Error | `{"$type":"error","code":"#DIV/0!"}` |
+| List | JSON array |
+| Record | JSON object that is not a `$type` wrapper |
 
-Context keys are JSON strings. Context values use the same encoding. A JSON object that is not a `$type` wrapper is a record. A JSON array is a list. Both are read by §6.7 and are `#VALUE!` wherever a scalar is required.
+Context keys are JSON strings. Context values use the same encoding. A JSON object that is not a `$type` wrapper is a record. A JSON array is a list. Both are read by §6.7 and are `#VALUE!` wherever a scalar is required. As the whole result of `evaluate`, a list or a record is returned (§7.1).
 
 The key `$type` is **reserved** for wrappers. Hosts SHOULD reject, at the API boundary, a JSON object whose `$type` value is not a wrapper type defined by this spec. Proposed escape for real data that has a `$type` field: `{"$type":"record","value":{…}}` (§12.5).
 
@@ -392,7 +382,7 @@ These are **not** formula results. APIs MUST surface them as thrown exceptions /
 | Kind | When |
 |------|------|
 | `parse` | The formula is not a valid expression, including a leading `=` |
-| `limit` | Formula length, AST size, argument count, or range size exceeded |
+| `limit` | Formula length, AST size, argument count, or list size exceeded |
 | `timeout` | `timeoutMs` exceeded |
 | `unsupported` | Unsupported option |
 | `config` | Invalid function registration (§12.4, Proposed) |
@@ -412,9 +402,9 @@ Messages are implementation-defined. Fixture files do not assert message text.
 
 Function names are case-insensitive. Wrong arity is `#VALUE!` (Excel often uses `#VALUE!` for wrong argument counts on these functions).
 
-A range argument is expanded to the list of cell values **in §6.5 order**, then the function’s per-value rules run. Nested ranges are not a thing (ranges are not expressions that return ranges).
+A list argument is read in element order, then the function’s per-value rules run.
 
-**Direct arguments and references.** The rules below distinguish values **in a range** from **direct** arguments. In this revision a name and a single cell reference are **direct**: `SUM(flag)` with `flag` = `TRUE` is `1`, the same as `SUM(TRUE)`. Excel treats a single-cell reference like a one-cell range, so `SUM(A1)` with `A1` = `TRUE` is `0` in Excel. Matching that for cell references (but not for names) is **Open** on issue #4.
+**Direct arguments and lists.** The rules below distinguish a **direct** scalar from a value **in a list**. `SUM(flag)` with `flag` = `TRUE` is `1`, the same as `SUM(TRUE)`. `SUM(flags)` when `flags` is `[true, 1]` is `1`, because a boolean inside a list is ignored. There is no cell reference, so the old question of whether `SUM(A1)` follows range rules does not arise. `A1` is a name.
 
 ### 12.1 Tier 0 (required for conformance)
 
@@ -430,23 +420,23 @@ A range argument is expanded to the list of cell values **in §6.5 order**, then
 
 - At least one argument.
 - Each scalar is converted with §8.3.
-- Inside a range, **non-numeric text is ignored**, blanks are ignored, numbers and booleans count. If a range contributes **zero** scalars and there is no other scalar argument, the result is `#VALUE!`.
+- Inside a list, **non-numeric text is ignored**, blanks are ignored, numbers and booleans count. If a list contributes **zero** scalars and there is no other scalar argument, the result is `#VALUE!`.
 - `AND` is `TRUE` iff every counted scalar is `TRUE`.
 - `OR` is `TRUE` iff any counted scalar is `TRUE`.
-- Direct (non-range) arguments that fail §8.3 produce `#VALUE!` (they are not ignored).
+- Direct arguments that fail §8.3 produce `#VALUE!` (they are not ignored).
 
 #### `NOT(arg)`
 
-- Exactly one argument, which MUST be scalar (a range is `#VALUE!`).
+- Exactly one argument, which MUST be scalar (a list is `#VALUE!`).
 - Convert with §8.3 and negate.
 
 #### `SUM(arg1, …)`
 
 - At least one argument.
 - Numbers are added.
-- Booleans: in a **range**, ignored; as a **direct** argument, coerced to 1/0 (Excel).
+- Booleans: in a **list**, ignored; as a **direct** argument, coerced to 1/0 (Excel).
 - Blanks ignored.
-- Text in a **range**: ignored. Text as a **direct** argument: coerce with §8.1 or `#VALUE!`.
+- Text in a **list**: ignored. Text as a **direct** argument: coerce with §8.1 or `#VALUE!`.
 - Errors anywhere in the considered values propagate.
 
 #### `AVERAGE(arg1, …)`
@@ -462,9 +452,9 @@ A range argument is expanded to the list of cell values **in §6.5 order**, then
 
 #### `COUNT(arg1, …)`
 
-- In a **range**: only numbers count. Booleans, text, blanks, and errors are skipped.
+- In a **list**: only numbers count. Booleans, text, blanks, and errors are skipped.
 - **Direct** arguments: a number counts; a boolean counts; text counts if it converts to a number under §8.1 (`"3"` counts, `"abc"` does not); blank does not count.
-- Errors never propagate, direct or in a range. They are not counted. `COUNT(1, 1/0)` is `1`. This is Excel `COUNT`.
+- Errors never propagate, direct or in a list. They are not counted. `COUNT(1, 1/0)` is `1`. This is Excel `COUNT`.
 - Example: `COUNT(TRUE, "3", 1)` is `3`.
 
 #### `COUNTA(arg1, …)`
@@ -477,23 +467,11 @@ A range argument is expanded to the list of cell values **in §6.5 order**, then
 #### `PRODUCT(arg1, …)`
 
 - At least one argument.
-- Same membership as `SUM`: numbers are multiplied; blanks are ignored; booleans and text in a range are ignored; a direct boolean is `1` or `0`; direct numeric text is coerced; other direct text is `#VALUE!`.
+- Same membership as `SUM`: numbers are multiplied; blanks are ignored; booleans and text in a list are ignored; a direct boolean is `1` or `0`; direct numeric text is coerced; other direct text is `#VALUE!`.
 - Errors propagate.
 - If no number was counted, the result is `0` (Excel), not `1`.
 
-#### `SUMSQ(arg1, …)`
-
-- At least one argument.
-- Same membership as `SUM`. Each counted number is squared, then the squares are added.
-- If no number was counted, the result is `0`.
-
-#### `SUMPRODUCT(array1, …)`
-
-- At least one argument. Each argument is one array.
-- A range or a column (§6.7) is that array, in order. A direct scalar is a one-element array. There is no broadcasting: the arrays MUST have the same length, or the result is `#VALUE!`.
-- Each element becomes a factor: a number is itself, `TRUE` is `1`, `FALSE` is `0`, blank is `0`, and text (including numeric text) is `0`. An error propagates. A record is `#VALUE!`.
-- The result is the sum of the pairwise products. One array is just the sum of its factors. No factors (every array empty) is `0`.
-- In `aggregate`, an argument that is not already a list is one value per record, so `SUMPRODUCT(price, qty)` pairs each record’s `price` with its `qty`.
+`SUM(list * list)` is the sum of pairwise products. `SUM(list * list)` with both lists equal to the same numbers is the sum of squares. `SUM(list * number)` multiplies every element by that number and then sums. There is no `SUMSQ` or `SUMPRODUCT`.
 
 `SUMIF`, `COUNTIF`, `AVERAGEIF`, and their `IFS` forms stay **Deferred** in Tier 2. They need a criteria language this revision does not define.
 
@@ -518,7 +496,7 @@ Implementations that advertise Tier 1 MUST implement all of the following.
 | `LEN(text)` | Code **units** of §8.2 string (UTF-16 code units if the host is JS; Python implementations MUST count UTF-16 code units as well, not Unicode code points, so `LEN` matches across languages). |
 | `LEFT(text, n)` / `RIGHT(text, n)` | `n` converted to number then truncated toward 0. Negative `n` → `#VALUE!`. `n` omitted means `1`. Result is a string of that many UTF-16 code units, or the whole string if shorter. |
 | `MID(text, start, n)` | `start` is 1-based. `start < 1` → `#VALUE!`. Same `n` rules as `LEFT`. |
-| `CONCAT(arg1, …)` | At least one argument. Each scalar converted with §8.2 and appended. Ranges: each cell converted with §8.2; blank becomes `""`. Errors propagate. |
+| `CONCAT(arg1, …)` | At least one argument. Each scalar converted with §8.2 and appended. Lists: each element converted with §8.2; blank becomes `""`. Errors propagate. |
 
 `CONCATENATE` is an alias of `CONCAT` (same arity rules: one or more arguments).
 
@@ -555,7 +533,7 @@ Callers will want functions the spec does not define: domain rules (`TAX(amount,
 
 Each evaluator holds a **function registry**: a case-insensitive map from function name to an implementation plus a signature (§12.4.3). Builtins are registered through the same mechanism as custom functions.
 
-That is a design constraint, not a convenience. If the Tier 0 builtins can be written with the public extension API, the API is proven expressive enough for real Excel functions (lazy `IF`, range-aware `SUM`). If builtins need private hooks, custom functions will hit the same wall.
+That is a design constraint, not a convenience. If the Tier 0 builtins can be written with the public extension API, the API is proven expressive enough for real Excel functions (lazy `IF`, list-aware `SUM`). If builtins need private hooks, custom functions will hit the same wall.
 
 Lookup happens when a call is **evaluated**, not when it is parsed. A call to a name that is not in the registry still returns `#NAME?` (§9), so formulas that mention a not-yet-installed function parse and fail gracefully.
 
@@ -576,7 +554,7 @@ Rules:
 #### 12.4.3 Function names
 
 - Names follow the identifier rule in §5.1 (`[A-Za-z_][A-Za-z0-9_.]*`) and are matched case-insensitively, like builtins.
-- A name MAY match the cell-reference pattern. `LOG10` is both a valid cell (column `LOG`, row `10`) and a real Excel function. The `(` decides (§5.1): `LOG10(100)` is a call, bare `LOG10` is the cell.
+- A name MAY look like a spreadsheet address. `LOG10` is a name and also a real Excel function. The `(` decides (§5.1): `LOG10(100)` is a call, bare `LOG10` is the name.
 - Custom functions SHOULD use a dotted namespace, for example `ACME.TAX`. Names without a dot are reserved for current and future spec functions. A future spec revision that adds a builtin with the same name as an un-namespaced custom function would otherwise collide, and §12.4.2 makes that a construction-time error after an upgrade.
 - `TRUE` and `FALSE` cannot be registered.
 
@@ -593,7 +571,7 @@ A definition is:
 | `override` | §12.4.2 |
 | `volatile` | Default `false`. §12.4.7 |
 
-Parameter kinds decide **what the implementation receives**. The evaluator does the work, so every function treats ranges, errors, and laziness the same way:
+Parameter kinds decide **what the implementation receives**. The evaluator does the work, so every function treats lists, errors, and laziness the same way. There is no rectangle parameter: this revision has no ranges.
 
 | Kind | The implementation receives | Errors | Typical use |
 |------|-----------------------------|--------|-------------|
@@ -601,19 +579,18 @@ Parameter kinds decide **what the implementation receives**. The evaluator does 
 | `string` | A string, coerced with §8.2 | Same | `LEFT`, `LEN` |
 | `boolean` | A boolean, coerced with §8.3 | Same | `NOT` |
 | `scalar` | Any scalar value, uncoerced, including blank and error values | Passed through; the function decides | `IFERROR`, `ISBLANK` |
-| `values` | A flat list in §6.5 order. Each item is tagged **direct** or **from range**, because Excel treats them differently (§12.1 `SUM`) | Passed through | `SUM`, `COUNT`, `CONCAT` |
-| `range` | A rectangle: row and column count plus cell values. A non-range argument is `#VALUE!` | Passed through | `INDEX`, `VLOOKUP` (Tier 2) |
+| `values` | A flat list in §6.5 order. Each item is tagged **direct** or **in a list**, because those membership rules differ (§12.1 `SUM`) | Passed through | `SUM`, `COUNT`, `CONCAT` |
 | `lazy` | A thunk. The argument is evaluated only if and when the implementation calls it, at most once | Whatever the thunk returns | `IF`, `IFERROR`, `CHOOSE` |
-| `list` (Proposed, §12.5) | A list of records or scalars, or a column. A scalar or range argument is `#VALUE!` | Passed through | `COUNTROWS`, `SUMX` |
+| `list` (Proposed, §12.5) | A list of records or scalars, or a column. A scalar argument is `#VALUE!` | Passed through | `COUNTROWS`, `SUMX` |
 | `perRow` (Proposed, §12.5) | A function of one record: each call evaluates the argument with that record pushed as the innermost scope (§12.5.2). It may be called any number of times | Whatever each call returns | `SUMX`, `FILTER` |
 
-A range passed to a `number`, `string`, `boolean`, or `scalar` parameter is `#VALUE!` (no implicit intersection, §17.5).
+A list passed to a `number`, `string`, `boolean`, or `scalar` parameter is `#VALUE!`.
 
 #### 12.4.5 Implementation contract
 
 - The implementation receives the converted arguments and a small **call context**: the evaluator options, a clock (§12.4.7), and a `checkTimeout()` hook.
 - It MUST return a value from §7.1. It returns spreadsheet errors as error **values** (the language binding provides a constructor, for example `ExcelError("#N/A")`). It does not throw them.
-- Returning anything else (a list, a dict, `NaN`, `undefined`, a date object) is a host error **`function`**.
+- Returning a list or a record is allowed (§7.1). Returning anything else (`NaN`, `undefined`, a date object) is a host error **`function`**.
 - An exception thrown by the implementation is a host error **`function`** that names the function and carries the original exception. It is **not** turned into `#VALUE!`. A bug in application code should be loud; `#VALUE!` would make it look like bad input data.
 - The context mapping is not passed in. A custom function sees only its arguments, so `evaluate` stays pure with respect to the context (§4.3) and a function cannot quietly read keys the formula never mentioned.
 - Implementations MUST be synchronous. Async functions (database lookups, HTTP) are **Deferred**: they would make the API async in both languages and make timeouts and determinism much harder. Fetch the data first and put it in the context.
@@ -682,7 +659,7 @@ Custom functions run application code with the application's privileges. The eva
 - `builtins` restricts the built-in surface. For example `["0"]` allows only reviewed Tier 0 functions.
 - The application chooses which custom functions to register. A function that reads files or the network should not be registered on an evaluator that runs user-authored formulas.
 - `timeoutMs` (§4.2) still applies. A long-running custom function SHOULD call `checkTimeout()` inside loops; otherwise the timeout fires only after it returns.
-- Range arguments are materialized under `maxRangeCells`, so a custom function cannot be used to bypass that limit.
+- List arguments are materialized under `maxRangeCells`, so a custom function cannot be used to bypass that limit.
 
 #### 12.4.11 Open questions for issue #4
 
@@ -704,7 +681,7 @@ Custom functions run application code with the application's privileges. The eva
 - Path walking is required by §6.7, including the exact-key-wins rule. The bullets below restate it for the row functions in this section.
 - A segment applied to a **list** applies the rest of the path to every element. The result is a **column**: a list of values in element order. A list reached inside a list is flattened one level per hop, so `orders.items.qty` is every item’s `qty` across all orders.
 - A segment applied to blank yields blank. A segment applied to any other scalar yields `#VALUE!`. A missing key follows §6.4.
-- A record, list, or column used as an operator operand, as a scalar parameter, or as the top-level result of `evaluate` is `#VALUE!`. `orders.price * 2` and `SUM(orders.price * orders.qty)` are `#VALUE!`: there is no element-wise array arithmetic (Deferred).
+- Operators on lists are element-wise (§6.5). `orders.price * 2` is a list. `SUM(orders.price * orders.qty)` sums the pairwise products when every product is a number. A record used as a scalar operand is `#VALUE!`. A list or a record may be the result of `evaluate` (§7.1).
 
 #### 12.5.2 Scope
 
@@ -714,7 +691,7 @@ A bare name, or the first segment of a path, resolves in the innermost scope **w
 
 #### 12.5.3 Aggregations over lists and columns
 
-Every Tier 0 and Tier 1 function that accepts a range (`SUM`, `PRODUCT`, `SUMSQ`, `SUMPRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTA`, `AND`, `OR`, `CONCAT`) also accepts a list of scalars or a column, with exactly the **in a range** rules of §12.1. Text and booleans are skipped by `SUM` and `PRODUCT`. `SUMPRODUCT` uses its own factor rules (§12.1). A list of **records** passed to these functions is `#VALUE!` (`SUM(orders)`).
+Every Tier 0 and Tier 1 aggregate (`SUM`, `PRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `COUNTA`, `AND`, `OR`, `CONCAT`) accepts a list of scalars, with the **in a list** rules of §12.1. Text and booleans are skipped by `SUM` and `PRODUCT`. A list of **records** passed to these functions is `#VALUE!` (`SUM(orders)`).
 
 #### 12.5.4 API: one row formula, three uses
 
@@ -731,7 +708,7 @@ compile(formula)                 → program          # parse once; program.eval
 - `filter` returns the input records themselves, in input order.
 - `map` returns one value per row, in order. An error value stays in its slot; `onRowError` does not apply.
 - Option `maxRows` (default `10000`) bounds `rows` and every list a row-scoped function walks. A larger list is host error **`limit`**. `timeoutMs` MUST be polled at least between rows.
-- Option `cellReferences` (default **Open**: `true` keeps §5.1; `false` reads cell-shaped tokens such as `q1` as names). Record data often has such keys.
+- There is no `cellReferences` option. `q1` and `A1` are names (§6.2).
 
 #### 12.5.5 Row-scoped functions
 
@@ -747,28 +724,28 @@ Each takes a list of records and a **row formula** that is evaluated once per re
 | `COUNTX(list, expr)` | `COUNT` of the per-row results | `0` |
 | `COUNTAX(list, expr)` | `COUNTA` of the per-row results | `0` |
 
-**Invariant.** The per-row results form a column, and the aggregate applies its **in a range** rules (§12.1) to that column. Therefore `SUMX(orders, price)` equals `SUM(orders.price)`. An error in a per-row result propagates through `SUMX`, `AVERAGEX`, `MINX`, and `MAXX`, and is skipped by `COUNTX` and counted by `COUNTAX`.
+**Invariant.** The per-row results form a column, and the aggregate applies its **in a list** rules (§12.1) to that column. Therefore `SUMX(orders, price)` equals `SUM(orders.price)`. An error in a per-row result propagates through `SUMX`, `AVERAGEX`, `MINX`, and `MAXX`, and is skipped by `COUNTX` and counted by `COUNTAX`.
 
 `SUM(orders, price*qty)` is not a substitute. `SUM(a, b)` already means `a + b`, and whether `price*qty` runs once or per row cannot depend on the runtime type of `orders`. The required form is `aggregate("SUM(price * qty)", orders)` (§4.5): the row list is an argument of the API, and each aggregate argument is then evaluated per record.
 
 #### 12.5.6 Fixtures
 
-Proposed fixtures add `"mode": "evaluate" | "filter" | "map"` (default `evaluate`), `"rows"`, and `options.onRowError` / `options.cellReferences`. For `filter`, `expected` is the list of **0-based indexes** of kept rows.
+Proposed fixtures add `"mode": "evaluate" | "filter" | "map"` (default `evaluate`), `"rows"`, and `options.onRowError`. For `filter`, `expected` is the list of **0-based indexes** of kept rows.
 
 #### 12.5.7 Open questions for issue #4
 
 1. Per-row fallback to an outer scope (§12.5.2) versus an explicit qualifier such as `ROOT.rate`.
 2. Whether `strict` also covers missing **fields** in records, or only top-level names.
-3. A syntax for keys that are not identifiers, for example `[unit price]` and `[q1]`.
-4. The default for `cellReferences` in `filter` / `map`.
-5. Grouping (`groupBy(keyFormula, aggregateFormula, rows)`).
-6. Element-wise array arithmetic (`orders.price * orders.qty` as a column).
+3. A syntax for keys that are not identifiers, for example `[unit price]`.
+4. Grouping (`groupBy(keyFormula, aggregateFormula, rows)`).
+
+Decided in 0.8.0, and no longer open: there is no `cellReferences` option (`q1` is a name), and element-wise arithmetic on lists is required (§6.5).
 
 ## 13. Operators (after coercion)
 
 | Operator | Rule |
 |----------|------|
-| `+` `-` `*` | Numeric coercion of both sides, then IEEE operation. Non-finite result → `#NUM!`. |
+| `+` `-` `*` | Numeric coercion of both sides, then IEEE operation. Non-finite result → `#NUM!`. If either operand is a list, pair by §6.5 first, then apply this rule to each pair. The same lifting applies to `/`, `^`, `&`, comparisons, unary `+`/`-`, and `%`. |
 | `/` | Numeric coercion. Divisor `0` or `-0` → `#DIV/0!`. |
 | `^` | Numeric coercion. Left-associative (§5.2). If base `< 0` and exponent is not an integer, `#NUM!`. `0^0` → `#NUM!` (Excel). Base `0` with a negative exponent → `#DIV/0!` (Excel): `0^-1` is `#DIV/0!`. Any other non-finite result → `#NUM!`. |
 | Unary `+` | Numeric coercion. |
@@ -792,7 +769,7 @@ Defaults are in §4.2. They exist so a server can evaluate untrusted formulas.
 An implementation states:
 
 ```text
-specRevision: "0.7.0"
+specRevision: "0.8.0"
 tiers: ["0"]            # or ["0", "1"]
 ```
 
@@ -844,11 +821,10 @@ This section is informative. Where it names a behavior the libraries must implem
 | Use case | Why this API fits | Example |
 |----------|-------------------|---------|
 | **Rule engine on JSON** | Named fields, one expression, no grid | `IF(qty>10, price*0.9, price)*qty` with `{price, qty}` |
-| **Summarize records** | `aggregate` runs `SUM`, `PRODUCT`, `SUMSQ`, `SUMPRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, and `COUNTA` once per record (§4.5). A missing field is blank | `aggregate("SUMPRODUCT(price, qty)", rows)` → `29.97` when the first record has no `price` |
+| **Summarize records** | `aggregate` runs `SUM`, `PRODUCT`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, and `COUNTA` once per record (§4.5). A missing field is blank. On one object, `SUM(orders.price * orders.qty)` is the element-wise form | `aggregate("SUM(price * qty)", rows)` → `29.97` when the first record has no `price` |
 | **Query records** (Proposed, §12.5) | The same formula filters a list or fills a column | `filter("region = \"EU\"", orders)`, `SUMX(orders, price*qty)` |
 | **Stored business formulas** | Formulas live in a database and must run in a browser and on a server | Tax, discount, score cards |
-| **Small spreadsheet UI** | Same evaluator resolves `A1` and `SUM(A1:A10)` from a flat cell map | In-memory grid, not an `.xlsx` |
-| **Untrusted formula text** | Length, AST, range, and timeout limits (§14) | User-authored rules |
+| **Untrusted formula text** | Length, AST, list-size, and timeout limits (§14) | User-authored rules |
 | **Cross-language tests** | One JSON fixture, two runners | `spec/fixtures/` |
 
 ### 17.2 Use cases this revision is not for
@@ -884,10 +860,10 @@ These are easy to "simplify" and then fail real spreadsheets. Fixtures should gr
 | `IF(TRUE, 1, 1/0)` | `1` | Unused branch is not evaluated (§12.1) | Dead branch would throw |
 | `IF(FALSE, 1)` | `FALSE` | Two-argument `IF` (§12.1) | Arity `#VALUE!` |
 | `AND` / `OR` | All arguments run | No short-circuit (§11) | A later `#VALUE!` would disappear |
-| `SUM` of a range that contains text | Text ignored | §12.1 | `"apple"` would `#VALUE!` the column |
-| `SUM("3", 1)` | `4` | Direct text is coerced | Inconsistent with range `SUM` |
-| `SUM(TRUE, 1)` vs `TRUE` inside a range | Direct boolean counts; boolean in a range does not | §12.1 | Off-by-one totals |
-| `COUNT` of a range that contains `#DIV/0!` | Error **ignored** | §12.1 | `COUNT` unusable on dirty columns |
+| `SUM` of a list that contains text | Text ignored | §12.1 | `"apple"` would `#VALUE!` the column |
+| `SUM("3", 1)` | `4` | Direct text is coerced | Inconsistent with list `SUM` |
+| `SUM(TRUE, 1)` vs `TRUE` inside a list | Direct boolean counts; boolean in a list does not | §12.1 | Off-by-one totals |
+| `COUNT` of a list that contains `#DIV/0!` | Error **ignored** | §12.1 | `COUNT` unusable on dirty columns |
 | `COUNT(1, 1/0)` | `1`: a direct error is not counted and does not propagate | §12.1 | `#DIV/0!` |
 | `COUNT(TRUE, "3", 1)` | `3`: direct booleans and numeric text count | §12.1 | `1` |
 | `COUNTA` of an error | Counts as 1, does not propagate | §12.1 | — |
@@ -896,13 +872,12 @@ These are easy to "simplify" and then fail real spreadsheets. Fixtures should gr
 | `0^-1` | `#DIV/0!` | §13 | `#NUM!` from “non-finite” |
 | `1<2<3` | `FALSE`: `(1<2)<3` → `TRUE<3`, and a boolean sorts after numbers | §5.2, §8.5 | Python-style chaining, or `TRUE` → `1`, gives `TRUE` |
 | `ROUND(2.675, 2)` | `2.68` | Decimal rounding at 15 significant digits (§12.2) | Binary64 rounding gives `2.67` |
-| `ZZZ1` | `#REF!` (column after `XFD`) | §6.3 | A missing-key blank |
+| `ZZZ1`, `q1`, `A1` | Cell addresses | Names (§6.2). `q1 * 2` with `q1` = `100` is `200` | A field named like a cell would read as blank |
 | Context value `"price*qty"` | A string, unless you are a workbook | Not evaluated (§6.6) | Hidden recursion and cycles |
 | `TRUE` / `FALSE` tokens | Booleans, not names | §5.1 | Context key `"TRUE"` is unreachable |
 | Bare `SUM` vs `SUM(` | A name vs a call | `SUM` looks up key `SUM`; `sum(` is the builtin | Every identifier would be a function |
-| `A1` | Always a cell | Never a name (§5.1, §6.3) | A field named `A1` would steal the cell |
-| `$a$1` | Cell `A1` | Canonical key `A1` (§6.3) | Duplicate keys `a1` / `A1` |
-| Space between ranges | Intersection | **Parse error** (§5.2) | Two ranges would look like one expression |
+| `A1:A2` | A range | **Parse error** (§5.2, §6.3). `:` is not an operator | Callers would pass a rectangle |
+| Space between `A1:A2` and `A2:A3` | Intersection | **Parse error** (§5.2) | Two expressions would look like one |
 | `1,000` | Thousands separator in some locales | In `en-US`, comma separates arguments, so `SUM(1,000)` is `SUM(1, 0)` | Confused with one thousand |
 | `0.1+0.2` | Binary64, not decimal `0.3` | IEEE number (§7.1); fixtures use tolerance (§15.2). Comparing it with `0.3`, and rendering it as text, are **Open** (§8.2, §8.4) | Decimal libraries would disagree with Excel |
 | Fullwidth digits, unicode minus | Not numbers | Parse error, or `#VALUE!` on coercion | Locale "helpfulness" diverges by language |
@@ -918,7 +893,7 @@ These differ from Excel on purpose. Each one has a tier-0 fixture or is marked O
 | `"10%"*1` | `0.1` (also `"$1,000"`, date text) | `#VALUE!` (§8.1) | Text-to-number rules would depend on locale and formats |
 | Undefined name, `strict: true` | `#NAME?` | `#REF!` (§6.4) | Kept from 0.2.0; **Open** whether to switch to `#NAME?` |
 | Undefined name, `strict: false` | `#NAME?` | Blank | Sparse JSON records; a missing field should not fail the formula |
-| `SUM(A1)` where `A1` is `TRUE` or text | Reference rules: ignored | Direct rules: `TRUE` → `1`, `"3"` → `3` (§12) | **Open** for cell references |
+| `SUM(A1)` where the key `A1` is `TRUE` | A one-cell range: the boolean is ignored, so `SUM(A1, 1)` is `1` | `A1` is a name, so the boolean is direct and the result is `2` (§6.3, §12) | There are no cell references |
 | Empty argument `IF(a,,b)` | Allowed | Parse error (§5.2) | Deferred |
 | Number to text | 15 significant digits | Shortest round-trip (§8.2) | **Open** |
 | `0.1+0.2=0.3` | Can be `TRUE` | `FALSE` (§8.4) | **Open** |
@@ -928,10 +903,10 @@ These differ from Excel on purpose. Each one has a tier-0 fixture or is marked O
 | Corner | Why it is deferred |
 |--------|--------------------|
 | Date serials and the 1900-02-29 fiction | Needs a date type (§7.3). Numbers are not dates. |
-| `Sheet1!A1`, 3D ranges | No sheet model (§6.5). |
-| Array constants `{1,2;3,4}`, dynamic arrays, implicit intersection `@` | No array value (§7.1). Lists of records as **inputs** are a separate proposal (§12.5). |
-| `R1C1` | Unsupported option (§4.2). |
-| Whole-column `A:A` | The cell token requires a row (§5.1), so `A:A` is a parse error. Materializing a million cells would also trip `maxRangeCells`. |
+| `Sheet1!A1`, 3D references | No sheet model (§6.3). |
+| Array constants `{1,2;3,4}`, dynamic-array spill, implicit intersection `@` | No array-constant syntax. Lists come from the context and from element-wise operators (§6.5, §7.1). |
+| `R1C1` | No `referenceStyle` option (§4.2). |
+| Whole-column `A:A` | `:` is not an operator, so `A:A` is a parse error (§5.2). |
 | Circular references | Context strings are data, so one `evaluate` cannot cycle. A future workbook mode must define cycles separately. |
 
 ### 17.6 Existing solutions
@@ -941,7 +916,7 @@ None of these is a dependency. Several are the wrong shape (workbook or bare fun
 | Project | What it actually is | Context | Parses `price*qty`? | Graph | License (check before copying) | What we take |
 |---------|---------------------|---------|----------------------|-------|--------------------------------|--------------|
 | [formulajs](https://github.com/formulajs/formulajs) | JavaScript **functions** (`SUM(1, 2)`), not a formula language | JS arguments | No | No | MIT | Per-function edges (range vs direct `SUM`, rounding). Not the architecture. |
-| [fast-formula-parser](https://github.com/LesterLye/fast-formula-parser) | Parser plus evaluator aimed at a grid | `onCell` / `onRange` callbacks | Yes, usually with a leading `=` | Can list dependencies | MIT | Tokenizer shape: cells, ranges, functions. We still need **names**, and we reject a required `=`. |
+| [fast-formula-parser](https://github.com/LesterLye/fast-formula-parser) | Parser plus evaluator aimed at a grid | `onCell` / `onRange` callbacks | Yes, usually with a leading `=` | Can list dependencies | MIT | Function-call shape. We use **names** and lists, and we reject a required `=`. |
 | [HyperFormula](https://github.com/handsontable/hyperformula) | Full spreadsheet engine | Workbook, multiple sheets | Yes | Yes, including cycles | GPL-3.0 or commercial | Behavior oracle only. Do not vendor. |
 | [formulas](https://github.com/vinci1it2000/formulas) (Python) | Parse Excel formulas, compile, optional `.xlsx` | Cells and compiled callables | Yes | Yes | EUPL-1.1 | Shows how large a real subset is. The workbook graph is out of scope here. |
 | [pycel](https://github.com/dgorissen/pycel) | Compile a workbook to Python | `.xlsx` | Yes | Yes | GPL-3.0 | Do not vendor. |
@@ -951,7 +926,7 @@ None of these is a dependency. Several are the wrong shape (workbook or bare fun
 ### 17.7 What we will not copy
 
 - **A required leading `=`.** Grid UIs can prepend it before calling us. The library contract is the expression (issue #4).
-- **A cell-only callback API.** Rule engines do not have `onCell`. Names and `A1` keys share one map (§6).
+- **A cell-only callback API.** Rule engines do not have `onCell`. The context is one map of names (§6).
 - **Evaluating formulas found in cell values.** Workbook engines do this. We do not (§6.6), so a dict is safe to pass through without a cycle detector.
 - **Their test files as our fixtures.** Those tests are copyrighted. We write our own cases under `spec/fixtures/`, using documented Excel behavior as the oracle.
 - **GPL / EUPL engine source.** This spec does not require linking them.
@@ -959,7 +934,7 @@ None of these is a dependency. Several are the wrong shape (workbook or bare fun
 ### 17.8 Implications for the first implementation
 
 1. Implement the parser from §5. formulajs does not parse expressions, so it cannot be the engine.
-2. Treat §17.3 as the fixture backlog. Tier 0 is not done when `1+1` works; it is done when the coercion and range-vs-direct rows pass in both languages.
+2. Treat §17.3 as the fixture backlog. Tier 0 is not done when `1+1` works; it is done when the coercion and list-vs-direct rows pass in both languages.
 3. Keep the host boundary strict: parse errors and limits throw; `#DIV/0!` and `#REF!` return (§10 vs §9).
 4. Add a workbook mode only after issue #4 chooses a context shape for sheets and cycles. Do not grow it inside `evaluate`.
 
@@ -975,13 +950,14 @@ Tracked on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4)
 6. Extensibility with additional functions: the proposal in §12.4 and its open questions in §12.4.11.
 7. Records, lists, and query mode: the proposal in §12.5 and its open questions in §12.5.7.
 8. Number formatting and comparison at 15 significant digits (§8.2, §8.4).
-9. Reference semantics for single cell references in functions (§12, “Direct arguments and references”).
+9. **Decided in 0.8.0.** There are no cell references. `A1` is a name, so `SUM(A1)` follows the direct rules in §12.
 10. `#NAME?` instead of `#REF!` for a missing name when `strict` is true (§6.4).
 
 ## 19. Revision history
 
 | Revision | Date | Summary |
 |----------|------|---------|
+| 0.8.0 | 2026-10-17 | No spreadsheet ranges. Formulas run on objects and arrays. `*` is element-wise on lists, so `SUM(values * values)` and `SUM(values * 2)` replace `SUMSQ` and `SUMPRODUCT` |
 | 0.7.0 | 2026-10-17 | Tier 0 adds `PRODUCT`, `SUMSQ`, and `SUMPRODUCT` (§12.1). `SUMPRODUCT(price, qty)` over records pairs each row. `SUMIF` / `COUNTIF` stay Deferred |
 | 0.6.0 | 2026-10-17 | Nested records and lists are required (§6.7). A dotted name walks the path when it is not an exact key. Aggregations accept a column of scalars with range rules. `aggregate` evaluates `SUM(price * qty)` once per record (§4.5). `filter`, `map`, and `SUMX` stay Proposed |
 | 0.5.0 | 2026-10-17 | Records requirement recorded (§2.1); records, lists, and query mode proposed (§12.5). Excel-compat corrections: comparisons never coerce (`"3"=3` is `FALSE`), ordered comparison by type with typed blanks, left-associative `^`, `1<2<3` is `FALSE`, two-argument `IF`, `COUNT` direct-argument rules, `0^-1` is `#DIV/0!`, decimal `ROUND`. Clarified number and identifier tokens, cell bounds (`XFD`), empty arguments, `maxFunctionArgs`, `maxFormulaLength` unit, `$type` reservation, direct vs range arguments. Added deliberate-deviation table (§17.4) |

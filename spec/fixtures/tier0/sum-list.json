@@ -1,0 +1,6 @@
+{
+  "id": "sum-list",
+  "formula": "SUM(values)",
+  "context": { "values": [1, 2, 3, 4] },
+  "expected": 10
+}

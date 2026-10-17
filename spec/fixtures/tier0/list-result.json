@@ -1,0 +1,6 @@
+{
+  "id": "list-result",
+  "formula": "values",
+  "context": { "values": [1, 2, 3] },
+  "expected": [1, 2, 3]
+}

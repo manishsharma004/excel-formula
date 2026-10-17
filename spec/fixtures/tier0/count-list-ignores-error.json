@@ -1,0 +1,8 @@
+{
+  "id": "count-list-ignores-error",
+  "formula": "COUNT(values)",
+  "context": {
+    "values": [1, { "$type": "error", "code": "#DIV/0!" }]
+  },
+  "expected": 1
+}

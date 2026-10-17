@@ -12,25 +12,7 @@ export interface EvalOptions {
   rowTable?: Map<string, Scalar>[];
 }
 
-export class RangeValue {
-  constructor(readonly values: Scalar[]) {}
-}
-
-type Runtime = Scalar | RangeValue;
-
-const XFD = 16384;
-const MAX_ROW = 1048576;
-
-function colLetters(n: number): string {
-  let s = "";
-  let x = n;
-  while (x > 0) {
-    const m = (x - 1) % 26;
-    s = String.fromCharCode(65 + m) + s;
-    x = Math.floor((x - 1) / 26);
-  }
-  return s;
-}
+type Runtime = Scalar;
 
 function finite(n: number): Scalar {
   return Number.isFinite(n) ? n : err("#NUM!");
@@ -94,13 +76,6 @@ export function interpret(
     }
   }
 
-  function lookupCell(col: number, row: number): Scalar {
-    if (col < 1 || col > XFD || row < 1 || row > MAX_ROW) return err("#REF!");
-    const key = `${colLetters(col)}${row}`;
-    if (!ctx.has(key)) return opt.strict ? err("#REF!") : null;
-    return ctx.get(key) ?? null;
-  }
-
   function lookupExact(name: string): { found: true; value: Scalar } | { found: false } {
     for (let i = scopes.length - 1; i >= 0; i--) {
       const scope = scopes[i]!;
@@ -140,26 +115,6 @@ export function interpret(
     return value;
   }
 
-  function expand(a: { col: number; row: number }, b: { col: number; row: number }): Scalar[] {
-    if (
-      a.col < 1 || a.col > XFD || b.col < 1 || b.col > XFD ||
-      a.row < 1 || a.row > MAX_ROW || b.row < 1 || b.row > MAX_ROW
-    ) {
-      return [err("#REF!")];
-    }
-    const c1 = Math.min(a.col, b.col);
-    const c2 = Math.max(a.col, b.col);
-    const r1 = Math.min(a.row, b.row);
-    const r2 = Math.max(a.row, b.row);
-    const count = (c2 - c1 + 1) * (r2 - r1 + 1);
-    if (count > opt.maxRangeCells) host("limit", "Range is too large");
-    const values: Scalar[] = [];
-    for (let r = r1; r <= r2; r++) {
-      for (let c = c1; c <= c2; c++) values.push(lookupCell(c, r));
-    }
-    return values;
-  }
-
   function evalAny(node: Ast): Runtime {
     checkTime();
     switch (node.k) {
@@ -169,20 +124,15 @@ export function interpret(
         return node.v;
       case "name":
         return lookupName(node.v);
-      case "cell":
-        return lookupCell(node.col, node.row);
-      case "range":
-        return new RangeValue(expand(node.a, node.b));
       case "unary": {
-        const x = scalar(evalAny(node.x));
-        const n = toNumber(x);
-        if (isError(n)) return n;
-        return node.op === "-" ? finite(-n) : n;
+        const x = evalAny(node.x);
+        if (x instanceof ListValue) return mapList(x, (item) => applyUnary(node.op, item));
+        return applyUnary(node.op, x);
       }
       case "pct": {
-        const n = toNumber(scalar(evalAny(node.x)));
-        if (isError(n)) return n;
-        return finite(n * 0.01);
+        const x = evalAny(node.x);
+        if (x instanceof ListValue) return mapList(x, applyPct);
+        return applyPct(x);
       }
       case "bin":
         return evalBin(node.op, node.l, node.r);
@@ -194,12 +144,29 @@ export function interpret(
   }
 
   function scalar(v: Runtime): Scalar {
-    return v instanceof RangeValue ? err("#VALUE!") : v;
+    return v;
   }
 
-  function evalBin(op: string, l: Ast, r: Ast): Scalar {
-    const L = scalar(evalAny(l));
-    const R = scalar(evalAny(r));
+  function mapList(list: ListValue, f: (item: Scalar) => Scalar): ListValue {
+    if (list.items.length > opt.maxRangeCells) host("limit", "List is too large");
+    return new ListValue(list.items.map(f));
+  }
+
+  function applyUnary(op: "+" | "-", x: Scalar): Scalar {
+    if (x instanceof ListValue) return mapList(x, (item) => applyUnary(op, item));
+    const n = toNumber(x);
+    if (isError(n)) return n;
+    return op === "-" ? finite(-n) : n;
+  }
+
+  function applyPct(x: Scalar): Scalar {
+    if (x instanceof ListValue) return mapList(x, applyPct);
+    const n = toNumber(x);
+    if (isError(n)) return n;
+    return finite(n * 0.01);
+  }
+
+  function applyScalar(op: string, L: Scalar, R: Scalar): Scalar {
     if (op === "&") {
       const a = toString(L);
       if (isError(a)) return a;
@@ -240,6 +207,24 @@ export function interpret(
     return err("#VALUE!");
   }
 
+  function evalBin(op: string, l: Ast, r: Ast): Scalar {
+    return pair(op, evalAny(l), evalAny(r));
+  }
+
+  function pair(op: string, L: Scalar, R: Scalar): Scalar {
+    if (isError(L)) return L;
+    if (isError(R)) return R;
+    const ls = L instanceof ListValue ? L.items : null;
+    const rs = R instanceof ListValue ? R.items : null;
+    if (!ls && !rs) return applyScalar(op, L, R);
+    const n = ls ? ls.length : rs!.length;
+    if (ls && rs && ls.length !== rs.length) return err("#VALUE!");
+    if (n > opt.maxRangeCells) host("limit", "List is too large");
+    const out: Scalar[] = [];
+    for (let i = 0; i < n; i++) out.push(pair(op, ls ? ls[i]! : L, rs ? rs[i]! : R));
+    return new ListValue(out);
+  }
+
   function evalCall(name: string, args: Ast[]): Scalar {
     const key = name.toLowerCase();
     const fn = FUNCS[key];
@@ -249,10 +234,9 @@ export function interpret(
 
   type Arg =
     | { kind: "scalar"; value: Scalar }
-    | { kind: "range"; values: Scalar[] };
+    | { kind: "list"; values: Scalar[] };
 
   function evalArg(node: Ast): Arg {
-    if (node.k === "range") return { kind: "range", values: expand(node.a, node.b) };
     return { kind: "scalar", value: scalar(evalAny(node)) };
   }
 
@@ -277,15 +261,13 @@ export function interpret(
       const bad = arity(args, 1, 1);
       if (bad) return bad;
       const a = evalArg(args[0]!);
-      if (a.kind === "range") return err("#VALUE!");
+      if (a.kind === "list") return err("#VALUE!");
       const b = toBoolean(a.value);
       if (isError(b)) return b;
       return !b;
     },
     sum: (args) => agg(args, "sum"),
     product: (args) => agg(args, "product"),
-    sumsq: (args) => agg(args, "sumsq"),
-    sumproduct: (args) => sumProduct(args),
     average: (args) => agg(args, "average"),
     min: (args) => agg(args, "min"),
     max: (args) => agg(args, "max"),
@@ -375,7 +357,7 @@ export function interpret(
     let out = "";
     for (const arg of args) {
       const a = widen(evalArg(arg));
-      const items = a.kind === "range" ? a.values : [a.value];
+      const items = a.kind === "list" ? a.values : [a.value];
       for (const v of items) {
         const s = toString(v);
         if (isError(s)) return s;
@@ -396,7 +378,7 @@ export function interpret(
   }
 
   function widen(a: Arg): Arg {
-    if (a.kind === "scalar" && a.value instanceof ListValue) return { kind: "range", values: a.value.items };
+    if (a.kind === "scalar" && a.value instanceof ListValue) return { kind: "list", values: a.value.items };
     return a;
   }
 
@@ -444,13 +426,12 @@ export function interpret(
   function columnOf(arg: Ast): { direct: boolean; values: Scalar[] } | ExcelError {
     if (opt.rowTable) {
       const peeked = widen(evalArg(arg));
-      if (peeked.kind === "range") return { direct: false, values: peeked.values };
+      if (peeked.kind === "list") return { direct: false, values: peeked.values };
       if (peeked.value instanceof ListValue) return { direct: false, values: peeked.value.items };
       const inner: EvalOptions = { ...opt, rowTable: undefined };
       const values: Scalar[] = [];
       for (const row of opt.rowTable) {
         const v = interpret(arg, ctx, inner, [...scopes, row]);
-        if (v instanceof RangeValue) return err("#VALUE!");
         values.push(v);
       }
       return { direct: false, values };
@@ -459,51 +440,15 @@ export function interpret(
     return a.kind === "scalar" ? { direct: true, values: [a.value] } : { direct: false, values: a.values };
   }
 
-  function factor(v: Scalar): Scalar {
-    if (isError(v)) return v;
-    if (v instanceof NonScalar) return err("#VALUE!");
-    if (typeof v === "number") return v;
-    if (typeof v === "boolean") return v ? 1 : 0;
-    return 0;
-  }
-
-  function sumProduct(args: Ast[]): Scalar {
-    if (args.length < 1) return err("#VALUE!");
-    const arrays: number[][] = [];
-    let length = -1;
-    for (const arg of args) {
-      const col = columnOf(arg);
-      if (col instanceof ExcelError) return col;
-      const nums: number[] = [];
-      for (const v of col.values) {
-        const n = factor(v);
-        if (isError(n)) return n;
-        nums.push(n);
-      }
-      if (length < 0) length = nums.length;
-      else if (nums.length !== length) return err("#VALUE!");
-      arrays.push(nums);
-    }
-    let total = 0;
-    for (let i = 0; i < length; i++) {
-      let prod = 1;
-      for (const arr of arrays) prod *= arr[i]!;
-      total += prod;
-    }
-    return finite(total);
-  }
-
-  function agg(args: Ast[], kind: "sum" | "average" | "min" | "max" | "product" | "sumsq"): Scalar {
+  function agg(args: Ast[], kind: "sum" | "average" | "min" | "max" | "product"): Scalar {
     if (args.length < 1) return err("#VALUE!");
     let total = 0;
-    let squares = 0;
     let prod = 1;
     let n = 0;
     let min = Infinity;
     let max = -Infinity;
     const take = (num: number) => {
       total += num;
-      squares += num * num;
       prod *= num;
       n++;
       if (num < min) min = num;
@@ -529,7 +474,6 @@ export function interpret(
       }
     }
     if (kind === "sum") return finite(total);
-    if (kind === "sumsq") return finite(squares);
     if (kind === "product") return n === 0 ? 0 : finite(prod);
     if (n === 0) return kind === "average" ? err("#DIV/0!") : 0;
     if (kind === "average") return finite(total / n);
@@ -563,6 +507,5 @@ export function interpret(
     return n;
   }
 
-  const v = evalAny(ast);
-  return v instanceof RangeValue ? err("#VALUE!") : v;
+  return evalAny(ast);
 }

@@ -1,6 +1,6 @@
 /**
  * Excel-style formula evaluation on a context object.
- * Behavior is defined in ../../spec/SPEC.md revision 0.7.0.
+ * Behavior is defined in ../../spec/SPEC.md revision 0.8.0.
  */
 
 import { toBoolean } from "./coerce.js";
@@ -9,14 +9,13 @@ import { interpret, type EvalOptions } from "./interpret.js";
 import { parseFormula, type Ast } from "./parser.js";
 import { decodeJson, encodeJson, isError, type Scalar } from "./value.js";
 
-export const SPEC_REVISION = "0.7.0";
+export const SPEC_REVISION = "0.8.0";
 
 export type Value = unknown;
 
 export type Context = Record<string, unknown>;
 
 export type EvaluatorOptions = {
-  referenceStyle?: "A1" | "R1C1";
   formulaLocale?: string;
   strict?: boolean;
   maxFormulaLength?: number;
@@ -36,7 +35,6 @@ function utf16Length(s: string): number {
 export class Evaluator {
   static readonly specRevision = SPEC_REVISION;
 
-  readonly referenceStyle: "A1" | "R1C1";
   readonly formulaLocale: string;
   readonly strict: boolean;
   readonly maxFormulaLength: number;
@@ -46,11 +44,8 @@ export class Evaluator {
   readonly timeoutMs: number | undefined;
 
   constructor(options: EvaluatorOptions = {}) {
-    const style = options.referenceStyle ?? "A1";
     const locale = options.formulaLocale ?? "en-US";
-    if (style !== "A1") host("unsupported", "Only A1 references are supported");
     if (locale !== "en-US") host("unsupported", "Only en-US is supported");
-    this.referenceStyle = style;
     this.formulaLocale = locale;
     this.strict = options.strict ?? false;
     this.maxFormulaLength = options.maxFormulaLength ?? 8192;

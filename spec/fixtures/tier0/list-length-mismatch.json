@@ -1,0 +1,6 @@
+{
+  "id": "list-length-mismatch",
+  "formula": "a * b",
+  "context": { "a": [1, 2], "b": [1] },
+  "expected": { "$type": "error", "code": "#VALUE!" }
+}

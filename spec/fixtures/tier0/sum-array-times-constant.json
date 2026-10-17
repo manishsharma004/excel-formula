@@ -1,0 +1,6 @@
+{
+  "id": "sum-array-times-constant",
+  "formula": "SUM(values * 2)",
+  "context": { "values": [10, 5] },
+  "expected": 30
+}

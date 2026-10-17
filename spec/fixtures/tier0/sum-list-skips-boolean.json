@@ -1,0 +1,6 @@
+{
+  "id": "sum-list-skips-boolean",
+  "formula": "SUM(flags)",
+  "context": { "flags": [true, 1] },
+  "expected": 1
+}

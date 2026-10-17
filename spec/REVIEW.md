@@ -1,6 +1,8 @@
 # Review: `spec/SPEC.md` and issue #4
 
-**Status:** Informative. Two passes:
+**Status:** Informative. Spec **0.8.0** later removed spreadsheet ranges: `A1` is a name, lists are element-wise, and `SUMSQ` / `SUMPRODUCT` are not functions. Findings below that still say a token is a cell, or that `orders.price * 2` is `#VALUE!`, describe 0.5.0 and are not the current rule.
+
+Two passes:
 
 1. **First review** of spec **0.4.0** (Parts A–C below, unchanged except for cross-reference fixes).
 2. **Second review** after the first was merged. It re-read spec 0.4.0, the fixtures, and issue #4 (one comment, no new decisions), and produced spec **0.5.0**. Its results come first, so the status of every finding is in one place.
