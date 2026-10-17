@@ -31,7 +31,12 @@ function pythonPackage(): Plugin {
 
 export default defineConfig({
   base: process.env.VITE_BASE || "/",
-  server: { port: 7500, strictPort: true, host: "0.0.0.0" },
+  server: {
+    port: 7500,
+    strictPort: true,
+    host: "0.0.0.0",
+    fs: { allow: [root, join(root, "..")] },
+  },
   plugins: [pythonPackage()],
   resolve: {
     alias: {

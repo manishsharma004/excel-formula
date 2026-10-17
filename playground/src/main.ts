@@ -3,6 +3,8 @@ import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
 import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker";
 import { Evaluator, HostError } from "@excel-formula/core";
+import guideMd from "../../REFERENCE.md?raw";
+import { renderGuide } from "./guide.ts";
 import "./style.css";
 
 self.MonacoEnvironment = {
@@ -38,7 +40,13 @@ app.innerHTML = `
 <header>
   <h1>Excel formula playground</h1>
   <span>spec 0.7.0 · frontend only</span>
+  <button class="link" id="help" type="button">Formula guide</button>
 </header>
+<article id="guide" class="guide" hidden>
+  <div class="guide-bar"><button class="link" id="guide-back" type="button">Back to playground</button></div>
+  <div id="guide-body"></div>
+</article>
+<div id="work">
 <div class="tabs" role="tablist">
   <button id="tab-js" role="tab" aria-selected="true">JavaScript / TypeScript</button>
   <button id="tab-py" role="tab" aria-selected="false">Python</button>
@@ -62,8 +70,29 @@ app.innerHTML = `
     <span class="note" id="hint"></span>
   </div>
   <div class="panel"><h2 class="result-head">Result</h2><div id="result" class="editor"></div></div>
-  <p class="note">The setup script runs in this page before the formula. It is not a sandbox. Python runs in Pyodide in the browser. Completions use Chrome’s on-device Prompt API and stay off until you enable them.</p>
-</main>`;
+  <p class="note">The setup script runs in this page before the formula. It is not a sandbox. Python runs in Pyodide in the browser. Completions use Chrome’s on-device Prompt API and stay off until you enable them. The <button class="link" id="help-inline" type="button">formula guide</button> is the same text as REFERENCE.md.</p>
+</main>
+</div>`;
+
+const guideBody = document.querySelector("#guide-body")!;
+guideBody.innerHTML = renderGuide(guideMd);
+const guideEl = document.querySelector("#guide") as HTMLElement;
+const workEl = document.querySelector("#work") as HTMLElement;
+
+function showGuide(on: boolean) {
+  guideEl.hidden = !on;
+  workEl.hidden = on;
+  const next = on ? "#guide" : location.pathname + location.search;
+  if ((on && location.hash !== "#guide") || (!on && location.hash === "#guide")) {
+    history.replaceState(null, "", next);
+  }
+}
+
+document.querySelector("#help")!.addEventListener("click", () => showGuide(true));
+document.querySelector("#help-inline")!.addEventListener("click", () => showGuide(true));
+document.querySelector("#guide-back")!.addEventListener("click", () => showGuide(false));
+window.addEventListener("hashchange", () => showGuide(location.hash === "#guide"));
+if (location.hash === "#guide") showGuide(true);
 
 const editors = {
   formula: monaco.editor.create(document.querySelector("#formula")!, {

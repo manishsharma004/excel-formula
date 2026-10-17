@@ -9,6 +9,7 @@ This repository is a **multi-module monorepo**: one shared specification, multip
 **Early design phase.** Behavior is not finalized. See:
 
 - [`spec/SPEC.md`](spec/SPEC.md) — draft language-neutral specification (source of truth for implementations)
+- [`REFERENCE.md`](REFERENCE.md) — formula guide (same text as the playground help page)
 - [**Design discussion (issue #4)**](https://github.com/manishsharma004/excel-formula/issues/4) — canonical thread for spec decisions
 - [`spec/DISCUSSION_ISSUE.md`](spec/DISCUSSION_ISSUE.md) — design thread mirror (keep in sync with [#4](https://github.com/manishsharma004/excel-formula/issues/4); spec **0.7.0**)
 - [`spec/REVIEW.md`](spec/REVIEW.md) — design review: records and query model, Excel-compat findings and their status
