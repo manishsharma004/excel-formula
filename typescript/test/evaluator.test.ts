@@ -10,6 +10,6 @@ describe("Evaluator stub", () => {
 
   it("evaluate is not implemented yet", () => {
     const ev = new Evaluator();
-    assert.throws(() => ev.evaluate("1+1", {}), /not implemented/i);
+    assert.throws(() => ev.evaluate("=1+1", {}), /not implemented/i);
   });
 });

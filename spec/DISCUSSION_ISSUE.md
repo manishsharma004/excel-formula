@@ -9,7 +9,7 @@ An initial draft spec lives in **`spec/SPEC.md`** (revision **0.1.0**). Implemen
 We want one predictable behavior:
 
 ```text
-evaluate("price * qty", { "price": 9.99, "qty": 3 }) → 29.97
+evaluate("=price * qty", { "price": 9.99, "qty": 3 }) → 29.97
 ```
 
 …extended to a documented subset of Excel functions, errors, and coercion rules — **without** requiring Excel itself at runtime.
@@ -49,7 +49,7 @@ Excel often treats empty cells as `0` in arithmetic; strict engines prefer `#REF
 
 ### Formulas stored *in* context values
 
-If `context["total"]` is the string `"price*qty"`, we need either:
+If `context["total"]` is the string `"=price*qty"`, we need either:
 
 1. **Single-shot mode:** only the requested formula is evaluated; context values are opaque, or  
 2. **Workbook mode:** evaluator resolves dependencies, detects cycles, order of evaluation.
@@ -100,6 +100,7 @@ We can mine their test cases for edge cases once our value model is fixed.
 ## Open questions (please comment)
 
 - [ ] Primary context: names, cells, or hybrid?  
+- [ ] Should `evaluate` strip/require leading `=`? (draft: optional strip)  
 - [ ] Date literals and `TODAY()` — fixed clock injection for tests?  
 - [ ] Locale: English function names only for v0?  
 - [ ] Publish packages to PyPI / npm under what names?
