@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|--------|
 | **Status** | Draft — normative proposal for discussion in [issue #4](https://github.com/manishsharma004/excel-formula/issues/4) |
-| **Revision** | 0.2.0 |
+| **Revision** | 0.3.0 |
 | **Last updated** | 2026-10-17 |
 | **Compatibility target** | Microsoft Excel, **en-US**, for the subset defined here. Quirks we intentionally match are called out. Anything not specified is out of scope, not “whatever Excel does.” |
 
-This document is the language-neutral contract for the Python and TypeScript packages (and any later implementation). Implementations MUST cite `specRevision` **0.2.0** when they claim conformance. Behavior marked **Open** is not yet required.
+This document is the language-neutral contract for the Python and TypeScript packages (and any later implementation). Implementations MUST cite `specRevision` **0.3.0** when they claim conformance. Behavior marked **Open** is not yet required.
 
 ## 1. Purpose
 
@@ -159,6 +159,8 @@ name        := identifier that is not a cell reference
 ```
 
 Comparisons chain as in Excel: `1<2<3` is `(1<2)<3`, and the middle result is boolean, then coerced (§8).
+
+Excel’s intersection operator (a space between two ranges) and union operator (a comma that is not a function-argument separator) are **Deferred**. Whitespace is never an operator. `A1:A2 A2:A3` is a host parse error.
 
 ### 5.3 Percent and exponent
 
@@ -405,7 +407,7 @@ A range argument is expanded to the list of cell values **in §6.5 order**, then
 - Counts values that are numbers.
 - Booleans and text do not count, whether direct or in a range.
 - Blanks do not count.
-- Errors propagate.
+- An error inside a range is ignored (Excel `COUNT`). A direct error argument propagates.
 
 #### `COUNTA(arg1, …)`
 
@@ -483,7 +485,7 @@ Defaults are in §4.2. They exist so a server can evaluate untrusted formulas.
 An implementation states:
 
 ```text
-specRevision: "0.2.0"
+specRevision: "0.3.0"
 tiers: ["0"]            # or ["0", "1"]
 ```
 
@@ -524,14 +526,111 @@ Not part of semantic conformance:
 
 Publishing names stay **Open** on issue #4.
 
-## 17. Related work (informative)
+## 17. Use cases, corner cases, and existing solutions
 
-Not dependencies:
+This section is informative. Where it names a behavior the libraries must implement, that behavior is already normative in an earlier section. It exists so implementers do not "fix" an Excel quirk, and so we do not copy an existing engine whose API or license does not fit.
 
-- JavaScript: [formulajs](https://github.com/formulajs/formulajs), [fast-formula-parser](https://github.com/LesterLye/fast-formula-parser)
-- Python: [formulas](https://github.com/vinci1it2000/formulas), [pycel](https://github.com/dgorissen/pycel), [xlcalculator](https://github.com/brucemike/xlcalculator)
+### 17.1 Use cases this revision is for
+
+| Use case | Why this API fits | Example |
+|----------|-------------------|---------|
+| **Rule engine on JSON** | Named fields, one expression, no grid | `IF(qty>10, price*0.9, price)*qty` with `{price, qty}` |
+| **Stored business formulas** | Formulas live in a database and must run in a browser and on a server | Tax, discount, score cards |
+| **Small spreadsheet UI** | Same evaluator resolves `A1` and `SUM(A1:A10)` from a flat cell map | In-memory grid, not an `.xlsx` |
+| **Untrusted formula text** | Length, AST, range, and timeout limits (§14) | User-authored rules |
+| **Cross-language tests** | One JSON fixture, two runners | `spec/fixtures/` |
+
+### 17.2 Use cases this revision is not for
+
+| Not this library | Use instead |
+|------------------|-------------|
+| Loading an `.xlsx` and recalculating the workbook | A workbook engine (`formulas`, `xlcalculator`, `pycel`, HyperFormula) |
+| Thousands of cells, cycles, volatile `NOW()`, iterative calculation | A dependency graph. `evaluate` is one expression and does not see formulas stored in the context (§6.6) |
+| Full Excel locale support (`;` argument separators, translated function names) | Out of scope until a locale revision |
+| Models that depend on the 1900 leap-year bug, dynamic arrays, or `LAMBDA` | Deferred tiers |
+
+A caller who wants "cell C1's formula uses B1's formula" must expand that graph **outside** this library and pass already-computed values in the context. That split is deliberate: it keeps the evaluator pure and easy to test.
+
+### 17.3 Corner cases we match on purpose
+
+These are easy to "simplify" and then fail real spreadsheets. Fixtures should grow from this list; a few already live in `spec/fixtures/tier0/`.
+
+| Case | Excel | This spec | If we got it wrong |
+|------|--------|-----------|--------------------|
+| Leading `=` | Cell UI adds it; the expression is `1+1` | `=1+1` is a **parse error** (§2.1, §5.4) | We would disagree with issue #4 |
+| `=` as equality | Infix operator | `1=1` is `TRUE`; a prefix `=` is not equality | Callers would slice strings themselves |
+| `-2^2` | `4` | `(-2)^2` (§5.3) | Math-style `-(2^2)` = `-4` |
+| `10%^2` | `0.01` | `(10%)^2` | Mis-associated exponent |
+| `"3"+1` | `4` | Numeric coercion (§8.1) | String concat or `#VALUE!` |
+| `"3"=3` | `TRUE` | Equality coerces numeric strings (§8.4) | Strict equality |
+| `"3">2` | `TRUE` | Ordered compare does **not** coerce; text > number (§8.5) | "Fixed" after seeing `"3"=3` |
+| Blank `= 0`, `= ""`, `= FALSE` | All `TRUE` | §8.4 | Blank becomes a third boolean |
+| Blank in arithmetic | Acts as `0` | §8.1, so `1/missing` is `#DIV/0!` when `strict` is false | Missing names would throw |
+| `strict: true` missing key | Not an Excel switch | `#REF!` (§6.4) | Silent zeros hide typos |
+| `IF(TRUE, 1, 1/0)` | `1` | Unused branch is not evaluated (§12.1) | Dead branch would throw |
+| `AND` / `OR` | All arguments run | No short-circuit (§11) | A later `#VALUE!` would disappear |
+| `SUM` of a range that contains text | Text ignored | §12.1 | `"apple"` would `#VALUE!` the column |
+| `SUM("3", 1)` | `4` | Direct text is coerced | Inconsistent with range `SUM` |
+| `SUM(TRUE, 1)` vs `TRUE` inside a range | Direct boolean counts; boolean in a range does not | §12.1 | Off-by-one totals |
+| `COUNT` of a range that contains `#DIV/0!` | Error **ignored** | §12.1 | `COUNT` unusable on dirty columns |
+| `COUNT` of a direct error | Error propagates | §12.1 | — |
+| `COUNTA` of an error | Counts as 1, does not propagate | §12.1 | — |
+| `MIN` of only text | `0` | §12.1 | `#VALUE!` or `null` |
+| `0^0` | `#NUM!` | §13 | Many math libraries return `1` |
+| `1<2<3` | `(TRUE)<3` after boolean→number | §5.2, §8 | Python-style chaining would yield `TRUE` |
+| Context value `"price*qty"` | A string, unless you are a workbook | Not evaluated (§6.6) | Hidden recursion and cycles |
+| `TRUE` / `FALSE` tokens | Booleans, not names | §5.1 | Context key `"TRUE"` is unreachable |
+| Bare `SUM` vs `SUM(` | A name vs a call | `SUM` looks up key `SUM`; `sum(` is the builtin | Every identifier would be a function |
+| `A1` | Always a cell | Never a name (§5.1, §6.3) | A field named `A1` would steal the cell |
+| `$a$1` | Cell `A1` | Canonical key `A1` (§6.3) | Duplicate keys `a1` / `A1` |
+| Space between ranges | Intersection | **Parse error** (§5.2) | Two ranges would look like one expression |
+| `1,000` | Thousands separator in some locales | In `en-US`, comma separates arguments, so `SUM(1,000)` is `SUM(1, 0)` | Confused with one thousand |
+| `0.1+0.2` | Binary64, not decimal `0.3` | IEEE number (§7.1); fixtures use tolerance (§15.2) | Decimal libraries would disagree with Excel |
+| Fullwidth digits, unicode minus | Not numbers | Parse error, or `#VALUE!` on coercion | Locale "helpfulness" diverges by language |
+| `LEN` of an emoji outside the BMP | UTF-16 code units (counts as 2) | §12.2 | Python `len()` counts code points and disagrees with JavaScript |
+
+### 17.4 Corners we explicitly refuse
+
+| Corner | Why it is deferred |
+|--------|--------------------|
+| Date serials and the 1900-02-29 fiction | Needs a date type (§7.3). Numbers are not dates. |
+| `Sheet1!A1`, 3D ranges | No sheet model (§6.5). |
+| Array constants `{1,2;3,4}`, dynamic arrays, implicit intersection `@` | No array value (§7.1). |
+| `R1C1` | Unsupported option (§4.2). |
+| Whole-column `A:A` | The cell token requires a row (§5.1), so `A:A` is a parse error. Materializing a million cells would also trip `maxRangeCells`. |
+| Circular references | Context strings are data, so one `evaluate` cannot cycle. A future workbook mode must define cycles separately. |
+
+### 17.5 Existing solutions
+
+None of these is a dependency. Several are the wrong shape (workbook or bare function calls). GPL and EUPL projects are behavior references only: do not copy their source into this repo.
+
+| Project | What it actually is | Context | Parses `price*qty`? | Graph | License (check before copying) | What we take |
+|---------|---------------------|---------|----------------------|-------|--------------------------------|--------------|
+| [formulajs](https://github.com/formulajs/formulajs) | JavaScript **functions** (`SUM(1, 2)`), not a formula language | JS arguments | No | No | MIT | Per-function edges (range vs direct `SUM`, rounding). Not the architecture. |
+| [fast-formula-parser](https://github.com/LesterLye/fast-formula-parser) | Parser plus evaluator aimed at a grid | `onCell` / `onRange` callbacks | Yes, usually with a leading `=` | Can list dependencies | MIT | Tokenizer shape: cells, ranges, functions. We still need **names**, and we reject a required `=`. |
+| [HyperFormula](https://github.com/handsontable/hyperformula) | Full spreadsheet engine | Workbook, multiple sheets | Yes | Yes, including cycles | GPL-3.0 or commercial | Behavior oracle only. Do not vendor. |
+| [formulas](https://github.com/vinci1it2000/formulas) (Python) | Parse Excel formulas, compile, optional `.xlsx` | Cells and compiled callables | Yes | Yes | EUPL-1.1 | Shows how large a real subset is. The workbook graph is out of scope here. |
+| [pycel](https://github.com/dgorissen/pycel) | Compile a workbook to Python | `.xlsx` | Yes | Yes | GPL-3.0 | Do not vendor. |
+| [xlcalculator](https://github.com/brucemike/xlcalculator) | Evaluate a loaded workbook | openpyxl cells | Yes | Yes | MIT | "Read xlsx, then eval." Our inputs are dicts, not files. |
+| hot-formula-parser | Older Handsontable parser | Cell callbacks | Yes | No | MIT, unmaintained | Superseded by HyperFormula. Not a base. |
+
+### 17.6 What we will not copy
+
+- **A required leading `=`.** Grid UIs can prepend it before calling us. The library contract is the expression (issue #4).
+- **A cell-only callback API.** Rule engines do not have `onCell`. Names and `A1` keys share one map (§6).
+- **Evaluating formulas found in cell values.** Workbook engines do this. We do not (§6.6), so a dict is safe to pass through without a cycle detector.
+- **Their test files as our fixtures.** Those tests are copyrighted. We write our own cases under `spec/fixtures/`, using documented Excel behavior as the oracle.
+- **GPL / EUPL engine source.** This spec does not require linking them.
+
+### 17.7 Implications for the first implementation
+
+1. Implement the parser from §5. formulajs does not parse expressions, so it cannot be the engine.
+2. Treat §17.3 as the fixture backlog. Tier 0 is not done when `1+1` works; it is done when the coercion and range-vs-direct rows pass in both languages.
+3. Keep the host boundary strict: parse errors and limits throw; `#DIV/0!` and `#REF!` return (§10 vs §9).
+4. Add a workbook mode only after issue #4 chooses a context shape for sheets and cycles. Do not grow it inside `evaluate`.
 
 ## 18. Open questions
+
 
 Tracked on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4):
 
@@ -545,5 +644,6 @@ Tracked on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4)
 
 | Revision | Date | Summary |
 |----------|------|---------|
+| 0.3.0 | 2026-10-17 | Use cases, corner-case catalog, existing engines; COUNT ignores errors in ranges; space is not intersection |
 | 0.2.0 | 2026-10-17 | Normative draft: no leading `=`, grammar, coercion, Tier 0 functions, fixture schema, limits |
 | 0.1.0 | 2026-10-17 | Initial outline |

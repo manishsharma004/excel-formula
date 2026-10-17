@@ -1,0 +1,7 @@
+{
+  "id": "div-missing-is-div0",
+  "formula": "1/missing",
+  "context": {},
+  "options": { "strict": false },
+  "expected": { "$type": "error", "code": "#DIV/0!" }
+}

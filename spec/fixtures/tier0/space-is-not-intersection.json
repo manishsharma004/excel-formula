@@ -1,0 +1,6 @@
+{
+  "id": "space-is-not-intersection",
+  "formula": "A1:A2 A2:A3",
+  "context": { "A1": 1, "A2": 2, "A3": 3 },
+  "expected": { "$type": "host", "kind": "parse" }
+}
