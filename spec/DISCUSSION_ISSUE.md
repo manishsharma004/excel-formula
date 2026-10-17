@@ -1,112 +1,71 @@
-## Summary
+# Design discussion (mirror of issue #4)
 
-This issue is the **main design thread** for [excel-formula](https://github.com/manishsharma004/excel-formula): a **language-neutral spec** plus **Python** and **TypeScript** libraries that evaluate Excel-style formulas against an in-memory mapping (dict / object).
+**Canonical thread:** https://github.com/manishsharma004/excel-formula/issues/4
 
-An initial draft spec lives in **`spec/SPEC.md`** (revision **0.1.0**). Implementations under `python/` and `typescript/` are **stubs** until we lock semantics here.
-
-## Problem statement
-
-We want one predictable behavior:
-
-```text
-evaluate("=price * qty", { "price": 9.99, "qty": 3 }) → 29.97
-```
-
-…extended to a documented subset of Excel functions, errors, and coercion rules — **without** requiring Excel itself at runtime.
-
-Different languages should share:
-
-- Reference resolution rules (what keys in the context mean)
-- Value types (numbers, strings, booleans, errors, dates)
-- Function catalog and tiers
-- Shared JSON test fixtures (planned under `spec/fixtures/`)
-
-## Initial analysis
-
-### Why a spec-first monorepo?
-
-- **Parity:** spreadsheet UIs and backends often need the same formula semantics in browser (TS) and server/worker (Python).
-- **Testability:** JSON fixtures beat “looks right in Excel” for CI.
-- **Scope control:** Excel is huge; a written tier list prevents silent divergence between languages.
-
-### Context model (most important decision)
-
-Three common patterns (see spec §4.2):
-
-| Model | Context example | Typical use |
-|-------|-----------------|-------------|
-| **A — Cell keys** | `{ "A1": 10, "B1": 20 }` | Grid recalc, importing sheet snapshots |
-| **B — Name keys** | `{ "price": 9.99, "qty": 3 }` | Rules, templates, named fields |
-| **C — Hybrid** | Both names and `A1` | Full spreadsheet engines |
-
-**Suggestion:** Target **Model B (names)** for **v0**, with optional **A1** addresses (no sheet prefix). Add sheet-qualified refs (`Sheet1!A1`) and hybrid storage once we know if consumers pass nested dicts or flat keys.
-
-### Missing references
-
-Excel often treats empty cells as `0` in arithmetic; strict engines prefer `#REF!` or `null`.
-
-**Suggestion:** Make this **configurable** (`nullReference` option): default to **`#REF!` error value** in strict mode, **`0`** in lax mode (closer to Excel arithmetic). Document in spec before implementing.
-
-### Formulas stored *in* context values
-
-If `context["total"]` is the string `"=price*qty"`, we need either:
-
-1. **Single-shot mode:** only the requested formula is evaluated; context values are opaque, or  
-2. **Workbook mode:** evaluator resolves dependencies, detects cycles, order of evaluation.
-
-**Suggestion:** Ship **single-shot** `evaluate(formula, context)` first. Add `evaluate_all` / dependency graph in a later spec revision to avoid blocking v0.
-
-### Function scope
-
-Reimplementing all of Excel is unrealistic. A **tiered** function list (spec §6.2) lets us ship incrementally and tag conformance (`tier0`, `tier1`, …).
-
-**Suggestion for first useful release (Tier 0 + partial Tier 1):**
-
-- Arithmetic + comparisons, `&`, `%`
-- `IF`, `AND`, `OR`, `NOT`, `IFERROR`
-- `SUM`, `MIN`, `MAX`, `AVERAGE`, `COUNT`, `COUNTA`
-- Basic text: `LEN`, `LEFT`, `RIGHT`, `MID`, `CONCAT` / `CONCATENATE`
-
-Defer lookups (`VLOOKUP`/`XLOOKUP`) until context/range rules are clear.
-
-### Parser vs. formula-to-AST
-
-**Suggestion:** Spec should require the same **abstract semantics**, not necessarily the same parser. Both implementations may use:
-
-- A shared grammar document + generated parsers, or  
-- Independent parsers validated only via fixtures.
-
-Prefer **shared fixtures** as the contract; keep parser choice per language unless we later add a reference parser in WASM.
-
-### Security (if formulas are user-controlled)
-
-**Suggestion:** Spec should mandate **max formula length**, **max AST depth**, and **evaluation timeout** hooks for server-side use. Browser TS may use lighter limits.
-
-### Prior art (informative)
-
-- JS: formulajs, fast-formula-parser  
-- Python: formulas, pycel, xlcalculator  
-
-We can mine their test cases for edge cases once our value model is fixed.
-
-## Proposed next steps
-
-1. **Agree on context model** (name vs cell vs hybrid) and missing-key behavior.  
-2. **Freeze value model** for errors and dates (serial number vs ISO string).  
-3. Add **`spec/fixtures/tier0/`** with ~20 JSON cases and make both languages pass them.  
-4. Choose **Tier 0** function set and operator coercion table (append to spec).  
-5. Only then implement parsers/evaluators behind the stub APIs.
-
-## Open questions (please comment)
-
-- [ ] Primary context: names, cells, or hybrid?  
-- [ ] Should `evaluate` strip/require leading `=`? (draft: optional strip)  
-- [ ] Date literals and `TODAY()` — fixed clock injection for tests?  
-- [ ] Locale: English function names only for v0?  
-- [ ] Publish packages to PyPI / npm under what names?
+This file tracks the issue body for version control. When the issue is updated on GitHub, sync here (or vice versa).
 
 ---
 
-**Draft spec:** [`spec/SPEC.md`](https://github.com/manishsharma004/excel-formula/blob/cursor-agent/monorepo-spec-setup-3188/spec/SPEC.md) on branch `cursor-agent/monorepo-spec-setup-3188` (PR to `main` welcome).
+## Summary
 
-Feedback welcome on scope and the v0 context model.
+This is the **canonical design thread** for [excel-formula](https://github.com/manishsharma004/excel-formula): a language-neutral **spec** plus **Python** and **TypeScript** libraries that evaluate Excel-style expressions against an in-memory mapping (dict / object).
+
+**Active spec:** [`spec/SPEC.md`](./SPEC.md) revision **0.4.0** (see [PR #5](https://github.com/manishsharma004/excel-formula/pull/5)). Implementations under `python/` and `typescript/` are **stubs** until we lock semantics here.
+
+## Problem statement
+
+```text
+evaluate("price * qty", { "price": 9.99, "qty": 3 }) → 29.97
+```
+
+…extended to a documented subset of Excel functions, errors, and coercion — **without** Excel at runtime. Python and TypeScript MUST match on shared fixtures under `spec/fixtures/`.
+
+## Agreed
+
+### Formula input — no leading `=`
+
+`evaluate` takes **expression strings only** (e.g. `price * qty`, `SUM(a, b)`). A leading `=` is a **parse error** (spreadsheet UI only). See spec §2.1, §5.4.
+
+### Single-shot evaluation
+
+Context values are **data**. A string `"price*qty"` in the context is not evaluated as a formula (spec §6.6).
+
+## Spec progress (informative)
+
+| Revision | Highlights |
+|----------|------------|
+| 0.2.0 | Grammar, coercion, Tier 0 functions, limits, fixtures |
+| 0.3.0 | §17 use cases, corner-case catalog, existing engines |
+| 0.4.0 | **§12.4 proposed:** extensibility for **additional functions** (registry, parameter kinds, packs, security) |
+
+## Extensibility — please discuss (§12.4, Proposed)
+
+We need a way to add functions beyond the spec tiers without forking the evaluator.
+
+**Proposal summary:**
+
+1. **One registry** — builtins and `ACME.TAX`-style custom functions use the same registration API; builtins must be expressible with that API.
+2. **Options** — `functions: [...]`, `builtins: ["0"] | "all"` to limit surface for untrusted formulas.
+3. **Parameter kinds** — `number`, `string`, `boolean`, `scalar`, `values` (range vs direct tagging), `range`, `lazy` (for `IF`-style branching).
+4. **Naming** — custom functions SHOULD use dotted names (`ACME.TAX`); undotted names reserved for spec functions.
+5. **Contract** — sync only; no whole-context access; thrown errors → host `function` error (not `#VALUE!`) — **is this right?**
+6. **Volatile** — `TODAY`/`NOW` use injectable `clock` for tests.
+7. **Packs** — versioned multi-language function sets ship their own fixtures.
+
+Full text: spec **§12.4** and open questions **§12.4.11**.
+
+## Still open (please comment on GitHub #4)
+
+- [ ] Context model: names only, cells only, or hybrid? (Spec currently: **hybrid flat map**, §6.1)
+- [ ] Missing keys: blank (lax) vs `#REF!` (strict) — spec §6.4; keep?
+- [ ] Dates / serial numbers when Tier 2 lands
+- [ ] Locale beyond `en-US`
+- [ ] Workbook mode (formulas in context values + dependency graph) — defer?
+- [ ] Tier 1 required for first release, or Tier 0 only?
+- [ ] **§12.4.11** — custom function throws → host error vs `#VALUE!`? allow builtin `override`? async ever? `LAMBDA` in formula text as second extension path?
+
+## Next steps
+
+1. Comment on **§12.4** and the open checkboxes on [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).
+2. Merge **[PR #5](https://github.com/manishsharma004/excel-formula/pull/5)** when ready.
+3. Implement Tier 0 only after the relevant items are agreed.
