@@ -34,7 +34,7 @@ export class Evaluator {
 
   evaluate(_formula: string, _context: Context): Value {
     throw new Error(
-      "Formula evaluation is not implemented yet; see spec/SPEC.md and open GitHub issues.",
+      "Formula evaluation is not implemented yet; see spec/SPEC.md and GitHub issue #4.",
     );
   }
 }

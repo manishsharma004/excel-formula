@@ -33,5 +33,5 @@ class Evaluator:
         Not implemented until spec open questions in §11 are resolved.
         """
         raise NotImplementedError(
-            "Formula evaluation is not implemented yet; see spec/SPEC.md and open GitHub issues."
+            "Formula evaluation is not implemented yet; see spec/SPEC.md and GitHub issue #4."
         )

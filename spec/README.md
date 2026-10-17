@@ -4,7 +4,7 @@
 
 - **Draft status:** sections marked *TBD* or *Open question* are not decided.
 - **Versioning:** the spec carries a `Status` and `Revision` at the top; implementations should cite which revision they target.
-- **Changes:** prefer GitHub issues for debate, then PRs that update `SPEC.md` and reference the issue.
+- **Changes:** debate in [issue #4](https://github.com/manishsharma004/excel-formula/issues/4), then PRs that update `SPEC.md` and reference that issue.
 
 Future additions may include:
 

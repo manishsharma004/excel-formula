@@ -30,10 +30,12 @@ cd python && python -m pip install -e ".[dev]" && python -m pytest
 
 ## Workflow for agents
 
-1. Read open issues and `spec/SPEC.md` before implementing behavior.
+1. Read [design issue #4](https://github.com/manishsharma004/excel-formula/issues/4) and `spec/SPEC.md` before implementing behavior.
 2. Spec changes and code changes should land together when semantics change.
 3. Cross-language parity: add the same scenario to shared test vectors in `spec/fixtures/` when that directory exists.
 
 ## Cursor Cloud
 
-No special services required. Static docs + library code only.
+Cloud Agent install: `cd typescript && npm ci` (see `.cursor/environment.json`). No long-running services.
+
+Design discussion: [issue #4](https://github.com/manishsharma004/excel-formula/issues/4).
