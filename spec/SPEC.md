@@ -3,11 +3,11 @@
 | Field | Value |
 |-------|--------|
 | **Status** | Draft — normative proposal for discussion in [issue #4](https://github.com/manishsharma004/excel-formula/issues/4) |
-| **Revision** | 0.3.0 |
+| **Revision** | 0.4.0 |
 | **Last updated** | 2026-10-17 |
 | **Compatibility target** | Microsoft Excel, **en-US**, for the subset defined here. Quirks we intentionally match are called out. Anything not specified is out of scope, not “whatever Excel does.” |
 
-This document is the language-neutral contract for the Python and TypeScript packages (and any later implementation). Implementations MUST cite `specRevision` **0.3.0** when they claim conformance. Behavior marked **Open** is not yet required.
+This document is the language-neutral contract for the Python and TypeScript packages (and any later implementation). Implementations MUST cite `specRevision` **0.4.0** when they claim conformance. Behavior marked **Open** is not yet required.
 
 ## 1. Purpose
 
@@ -641,7 +641,7 @@ Defaults are in §4.2. They exist so a server can evaluate untrusted formulas.
 An implementation states:
 
 ```text
-specRevision: "0.3.0"
+specRevision: "0.4.0"
 tiers: ["0"]            # or ["0", "1"]
 ```
 
