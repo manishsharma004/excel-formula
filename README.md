@@ -41,7 +41,7 @@ ev.evaluate("SUM(values * 2)", { values: [10, 5] }); // 30
 |------|------------|
 | [`python/`](python/) | `excel_formula` |
 | [`typescript/`](typescript/) | `@excel-formula/core` |
-| [`playground/`](playground/) | Browser playground (Vite, Monaco, Pyodide) |
+| [`playground/`](playground/) | Browser playground (SvelteKit, daisyUI, Monaco, Pyodide) |
 | [`spec/`](spec/) | Language-neutral spec and shared fixtures |
 
 Install for development:
@@ -66,7 +66,7 @@ Both runners read `spec/fixtures/tier0/` and `spec/fixtures/tier1/`. Files under
 cd playground && npm install && npm run dev
 ```
 
-The dev server listens on port 7500. **Formula guide** in the page is `REFERENCE.md`.
+The dev server listens on port 7500. **Guide** opens `REFERENCE.md` in a sidebar on a wide window, or in a dialog on a narrow one. The shortcut is Ctrl+Shift+K.
 
 [GitHub Pages](https://manishsharma004.github.io/excel-formula/) is deployed from `main` by [`.github/workflows/main.yml`](.github/workflows/main.yml).
 

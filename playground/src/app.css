@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+.editor-host {
+  height: 11.5rem;
+}
+
+.guide :where(h1) {
+  font-size: 1.75rem;
+  font-weight: 650;
+  margin: 0.5rem 0 0.75rem;
+}
+.guide :where(h2) {
+  font-size: 1.25rem;
+  font-weight: 650;
+  margin: 1.75rem 0 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-base-300);
+}
+.guide :where(h3) {
+  font-size: 1rem;
+  font-weight: 650;
+  margin: 1.1rem 0 0.35rem;
+}
+.guide :where(p, li) {
+  margin: 0.35rem 0;
+}
+.guide :where(ul) {
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+.guide :where(code) {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  background: var(--color-base-200);
+  padding: 0 0.25rem;
+  border-radius: 0.25rem;
+}
+.guide :where(pre) {
+  background: var(--color-neutral);
+  color: var(--color-neutral-content);
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.5rem;
+  overflow: auto;
+  margin: 0.5rem 0 1rem;
+}
+.guide :where(pre code) {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+.guide :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0 1rem;
+  background: var(--color-base-100);
+}
+.guide :where(th, td) {
+  border: 1px solid var(--color-base-300);
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}
+.guide :where(th) {
+  background: var(--color-base-200);
+}

@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sveltekit } from "@sveltejs/kit/vite";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -30,17 +32,11 @@ function pythonPackage(): Plugin {
 }
 
 export default defineConfig({
-  base: process.env.VITE_BASE || "/",
+  plugins: [tailwindcss(), sveltekit(), pythonPackage()],
   server: {
     port: 7500,
     strictPort: true,
     host: "0.0.0.0",
     fs: { allow: [root, join(root, "..")] },
-  },
-  plugins: [pythonPackage()],
-  resolve: {
-    alias: {
-      "@excel-formula/core": fileURLToPath(new URL("../typescript/src/index.ts", import.meta.url)),
-    },
   },
 });
